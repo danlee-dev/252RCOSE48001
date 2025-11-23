@@ -77,7 +77,7 @@ services:
     container_name: docscanner_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@docscanner.ai
-      PGADMIN_DEFAULT_PASSWORD: DocAdminPass!2025
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - "5050:80"
     volumes:
