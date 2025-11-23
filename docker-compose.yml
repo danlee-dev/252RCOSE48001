@@ -1,21 +1,23 @@
 version: '3.8'
 
 services:
+  # 1. 검색 엔진 (Elasticsearch)
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
     container_name: docscanner-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
     ports:
       - "9200:9200"
       - "9300:9300"
     volumes:
       - es_data:/usr/share/elasticsearch/data
     networks:
-      - elastic
+      - app-network
 
+  # 2. 검색 시각화 (Kibana)
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.1
     container_name: docscanner-kibana
@@ -26,12 +28,77 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - elastic
+      - app-network
+
+  # 3. 그래프 DB (Neo4j)
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j_db
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - app-network
+
+  # 4. RDB (PostgreSQL)
+  db:
+    image: postgres:15
+    container_name: docscanner_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - app-network
+
+  # 5. Celery Message Broker (Redis)
+  redis:
+    image: redis:latest
+    container_name: docscanner-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data # 👈 데이터 보존을 위한 마운트 추가
+    networks:
+      - app-network
+
+  # 6. DB 관리 도구 (pgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: docscanner_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@docscanner.ai
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - app-network
 
 volumes:
   es_data:
     driver: local
+  neo4j_data:
+    driver: local
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
-  elastic:
+  app-network:
     driver: bridge

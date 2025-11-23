@@ -1,8 +1,18 @@
+import os
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
-# Neo4j 접속 정보
-URI = "bolt://localhost:7687"
-AUTH = ("neo4j", "password")
+
+# 1. 프로젝트 루트의 .env 파일 로드
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
+load_dotenv(os.path.join(root_dir, ".env"))
+
+# 2. 환경변수에서 접속 정보 가져오기 (없으면 기본값)
+URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+USER = os.getenv("NEO4J_USER", "neo4j")
+PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+AUTH = (USER, PASSWORD)
 
 class OntologyBuilder:
     def __init__(self, uri, auth):

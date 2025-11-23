@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 from elasticsearch import Elasticsearch, helpers
 from tqdm import tqdm # 진행률 표시
 
@@ -10,11 +11,8 @@ es = Elasticsearch("http://localhost:9200")
 # 2. 인덱스 이름 정의
 INDEX_NAME = "docscanner_chunks"
 
-# 3. 인덱싱할 데이터 파일 경로
-DATA_FILES = [
-    "../data/processed/embeddings/legal_chunks_with_embeddings_20251027.json",
-    "../data/processed/embeddings/chunks_with_embeddings.json"
-]
+# 3. 임베딩 디렉토리 (자동으로 최신 MUVERA 파일 찾기)
+EMBEDDINGS_DIR = Path(__file__).parent.parent / "data" / "processed" / "embeddings"
 # -----------------
 
 def create_index():
@@ -48,24 +46,39 @@ def create_index():
 
 
 def load_data():
-    """DATA_FILES 목록의 JSON 파일 로드"""
-    all_data = []
-    for file_path in DATA_FILES:
-        # 파일 존재 여부 확인
-        if not os.path.exists(file_path):
-            print(f"경고: {file_path} 파일을 찾을 수 없음. 건너뜀.")
-            continue
-            
-        print(f"{file_path} 로드 중...")
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                all_data.extend(data) # 단일 리스트로 병합
-        except Exception as e:
-            print(f"파일 로드 오류: {e}")
+    """최신 MUVERA 임베딩 파일 자동 로드"""
 
-    print(f"총 {len(all_data)}개 데이터 로드 완료.")
-    return all_data
+    # 최신 MUVERA 임베딩 파일 찾기
+    if not EMBEDDINGS_DIR.exists():
+        print(f"오류: 임베딩 디렉토리가 없습니다: {EMBEDDINGS_DIR}")
+        print("먼저 3_embed_muvera.py를 실행하세요.")
+        return []
+
+    # legal_chunks_with_muvera_embeddings_*.json 파일 찾기
+    embedding_files = sorted(
+        EMBEDDINGS_DIR.glob("legal_chunks_with_muvera_embeddings_*.json"),
+        reverse=True  # 최신 파일 우선
+    )
+
+    if not embedding_files:
+        print(f"오류: MUVERA 임베딩 파일을 찾을 수 없습니다.")
+        print(f"경로: {EMBEDDINGS_DIR}")
+        print("먼저 3_embed_muvera.py를 실행하세요.")
+        return []
+
+    # 최신 파일 사용
+    file_path = embedding_files[0]
+    print(f"\n최신 임베딩 파일 사용: {file_path.name}")
+    print(f"파일 경로: {file_path}")
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        print(f"총 {len(data):,}개 데이터 로드 완료.")
+        return data
+    except Exception as e:
+        print(f"파일 로드 오류: {e}")
+        return []
 
 def generate_actions(data):
     """(!!! 핵심 수정 !!!) Elasticsearch Bulk API용 데이터 형식 생성 (yield)"""

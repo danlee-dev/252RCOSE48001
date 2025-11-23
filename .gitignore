@@ -22,6 +22,7 @@ CLAUDE.md
 
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -90,3 +91,10 @@ coverage/
 *.swo
 *~
 temp_img/
+
+# 자동 생성된 데이터
+storage/
+alembic/versions/*
+alembic/
+/backend/storage/
+/backend/alembic/versions/
