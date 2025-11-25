@@ -115,9 +115,14 @@ class MuveraLegalEmbedder:
 
         # 문서 타입 정보 추가 (첫 문장에만)
         doc_type_map = {
+            # Legal data types
             'interpretation': '법령해석례',
             'precedent': '판례',
-            'labor_ministry': '고용노동부 법령해설'
+            'labor_ministry': '고용노동부 법령해설',
+            # PDF data types
+            'manual': '업무 매뉴얼',
+            'standard_contract': '표준근로계약서',
+            'law': '법령'
         }
         doc_type_kr = doc_type_map.get(chunk.get('doc_type', ''), '')
 
@@ -254,7 +259,7 @@ class MuveraLegalEmbedder:
         timestamp = datetime.now().strftime('%Y%m%d')
 
         # 1. 임베딩 포함 전체 청크 저장
-        output_file = output_dir / f"legal_chunks_with_muvera_embeddings_{timestamp}.json"
+        output_file = output_dir / f"all_chunks_with_muvera_embeddings_{timestamp}.json"
         print(f"\n임베딩 포함 청크 저장 중: {output_file.name}")
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(chunks, f, ensure_ascii=False, indent=2)
@@ -263,7 +268,7 @@ class MuveraLegalEmbedder:
         print(f"  - 파일 크기: {file_size:.2f}MB")
 
         # 2. FDE 임베딩만 numpy 저장
-        embeddings_file = output_dir / f"legal_muvera_embeddings_{timestamp}.npy"
+        embeddings_file = output_dir / f"all_muvera_embeddings_{timestamp}.npy"
         np.save(embeddings_file, fde_embeddings)
         print(f"\nFDE 임베딩 numpy 저장: {embeddings_file.name}")
 
@@ -290,7 +295,7 @@ class MuveraLegalEmbedder:
             }
         }
 
-        metadata_file = output_dir / f"legal_muvera_embeddings_metadata_{timestamp}.json"
+        metadata_file = output_dir / f"all_muvera_embeddings_metadata_{timestamp}.json"
         with open(metadata_file, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
@@ -339,7 +344,7 @@ def main():
     # 경로 설정
     project_root = Path(__file__).parent.parent
 
-    # 최신 청크 파일 찾기
+    # 청크 파일 경로
     chunks_dir = project_root / "data" / "processed" / "chunks"
     output_dir = project_root / "data" / "processed" / "embeddings"
 
@@ -347,22 +352,55 @@ def main():
         print(f"오류: 청크 디렉토리가 없습니다: {chunks_dir}")
         return
 
-    # legal_chunks_*.json 파일들 찾기 (metadata 제외)
-    chunk_files = sorted([f for f in chunks_dir.glob("legal_chunks_*.json")
+    print("\n" + "="*70)
+    print("MUVERA 임베딩 파이프라인 (PDF + Legal 통합)")
+    print("="*70)
+
+    # 1. Legal 청크 파일 찾기
+    legal_files = sorted([f for f in chunks_dir.glob("legal_chunks_*.json")
                          if "metadata" not in f.name], reverse=True)
-    if not chunk_files:
-        print(f"오류: 청크 파일이 없습니다: {chunks_dir}")
-        print("먼저 legal/2_chunk.py를 실행하세요.")
+
+    # 2. PDF 청크 파일 찾기 (all_chunks.json)
+    pdf_file = chunks_dir / "all_chunks.json"
+
+    all_chunks = []
+
+    # Legal 데이터 로드
+    if legal_files:
+        legal_file = legal_files[0]
+        print(f"\n1. Legal 청크 로드: {legal_file.name}")
+        with open(legal_file, 'r', encoding='utf-8') as f:
+            legal_chunks = json.load(f)
+        print(f"   - Legal 청크 수: {len(legal_chunks):,}개")
+        all_chunks.extend(legal_chunks)
+    else:
+        print("\n경고: Legal 청크 파일을 찾을 수 없습니다.")
+
+    # PDF 데이터 로드
+    if pdf_file.exists():
+        print(f"\n2. PDF 청크 로드: {pdf_file.name}")
+        with open(pdf_file, 'r', encoding='utf-8') as f:
+            pdf_chunks = json.load(f)
+        print(f"   - PDF 청크 수: {len(pdf_chunks):,}개")
+        all_chunks.extend(pdf_chunks)
+    else:
+        print("\n경고: PDF 청크 파일(all_chunks.json)을 찾을 수 없습니다.")
+
+    if not all_chunks:
+        print("\n오류: 임베딩할 청크가 없습니다.")
+        print("먼저 legal/2_chunk.py 또는 pdf/2_chunk.py를 실행하세요.")
         return
 
-    chunks_file = chunk_files[0]  # 최신 파일 사용
-    print(f"최신 청크 파일 사용: {chunks_file.name}")
+    print(f"\n총 청크 수: {len(all_chunks):,}개")
 
-    print(f"청크 파일: {chunks_file}")
-    print(f"출력 디렉토리: {output_dir}")
+    # 임시 통합 청크 파일 생성
+    merged_file = chunks_dir / "merged_chunks_temp.json"
+    print(f"\n3. 통합 청크 파일 생성: {merged_file.name}")
+    with open(merged_file, 'w', encoding='utf-8') as f:
+        json.dump(all_chunks, f, ensure_ascii=False)
 
     # MUVERA 임베더 초기화 (메모리 효율적 설정)
-    print("\n메모리 효율적 설정으로 초기화 중...")
+    print("\n4. MUVERA 임베더 초기화 중...")
     embedder = MuveraLegalEmbedder(
         model_name="nlpai-lab/KURE-v1",
         batch_size=2,           # 메모리 절약
@@ -370,10 +408,18 @@ def main():
     )
 
     # 임베딩 생성
-    chunks, fde_embeddings = embedder.embed_legal_chunks(chunks_file, output_dir)
+    print("\n5. MUVERA 임베딩 생성 시작...")
+    chunks, fde_embeddings = embedder.embed_legal_chunks(merged_file, output_dir)
 
-    print("\nMUVERA 임베딩 생성 완료!")
+    # 임시 파일 삭제
+    merged_file.unlink()
+    print(f"\n임시 파일 삭제: {merged_file.name}")
+
+    print("\n" + "="*70)
+    print("MUVERA 임베딩 생성 완료!")
+    print("="*70)
     print("다음 단계: Elasticsearch 인덱싱 (4_index.py)")
+    print("="*70)
 
 
 if __name__ == "__main__":

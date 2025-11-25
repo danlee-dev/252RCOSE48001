@@ -315,13 +315,25 @@ def main():
     # 청커 초기화 (법률 문서는 더 긴 청크 허용)
     chunker = LegalDataChunker(max_chunk_length=1000, min_chunk_length=150)
 
-    # 처리할 파일 매핑
-    today = datetime.now().strftime('%Y%m%d')
-    files_to_process = [
-        (f"interpretations_{today}.json", "interpretation"),
-        (f"precedents_{today}.json", "precedent"),
-        (f"labor_ministry_{today}.json", "labor_ministry"),
+    # 처리할 파일 자동 탐색 (날짜 무관)
+    files_to_process = []
+    file_patterns = [
+        ("interpretations_*.json", "interpretation"),
+        ("precedents_*.json", "precedent"),
+        ("labor_ministry_*.json", "labor_ministry"),
     ]
+
+    for pattern, source_type in file_patterns:
+        matching_files = sorted(input_dir.glob(pattern), reverse=True)
+        if matching_files:
+            files_to_process.append((matching_files[0].name, source_type))
+            print(f"발견: {matching_files[0].name}")
+
+    if not files_to_process:
+        print("오류: raw/api 폴더에 처리할 파일이 없습니다.")
+        return
+
+    today = datetime.now().strftime('%Y%m%d')
 
     all_chunks = []
     stats = {

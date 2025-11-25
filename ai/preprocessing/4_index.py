@@ -46,7 +46,7 @@ def create_index():
 
 
 def load_data():
-    """최신 MUVERA 임베딩 파일 자동 로드"""
+    """최신 MUVERA 임베딩 파일 자동 로드 (PDF + Legal 통합)"""
 
     # 최신 MUVERA 임베딩 파일 찾기
     if not EMBEDDINGS_DIR.exists():
@@ -54,9 +54,9 @@ def load_data():
         print("먼저 3_embed_muvera.py를 실행하세요.")
         return []
 
-    # legal_chunks_with_muvera_embeddings_*.json 파일 찾기
+    # all_chunks_with_muvera_embeddings_*.json 파일 찾기 (PDF + Legal 통합)
     embedding_files = sorted(
-        EMBEDDINGS_DIR.glob("legal_chunks_with_muvera_embeddings_*.json"),
+        EMBEDDINGS_DIR.glob("all_chunks_with_muvera_embeddings_*.json"),
         reverse=True  # 최신 파일 우선
     )
 
@@ -74,7 +74,7 @@ def load_data():
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        print(f"총 {len(data):,}개 데이터 로드 완료.")
+        print(f"총 {len(data):,}개 데이터 로드 완료 (PDF + Legal 통합).")
         return data
     except Exception as e:
         print(f"파일 로드 오류: {e}")
@@ -128,10 +128,9 @@ def main():
     print("Elasticsearch 데이터 인덱싱 시작...")
     try:
         success, failed = helpers.bulk(
-            es,
+            es.options(request_timeout=60),
             generate_actions(all_chunks),
-            chunk_size=500,  # 500개씩 묶어서 전송
-            request_timeout=60
+            chunk_size=500  # 500개씩 묶어서 전송
         )
         print("="*30)
         print(f"🎉 인덱싱 완료! 🎉")
