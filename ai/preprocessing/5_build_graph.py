@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
 load_dotenv(os.path.join(root_dir, ".env"))
 
-# 2. 환경변수에서 접속 정보 가져오기 (없으면 기본값)
+# 2. 환경변수에서 접속 정보 가져오기
 URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 USER = os.getenv("NEO4J_USER", "neo4j")
 PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
@@ -42,7 +42,7 @@ class GraphBuilder:
         with self.driver.session() as session:
             for q in queries:
                 session.run(q)
-        print("✅ 인덱스 설정 완료")
+        print("✅ 초기 인덱스 설정 완료")
 
     def load_processed_data(self):
         # 경로: ai/data/processed
@@ -50,6 +50,7 @@ class GraphBuilder:
         data_path = os.path.join(current_dir, "..", "data", "processed")
         
         print(f"🔍 데이터 경로: {os.path.abspath(data_path)}")
+        # processed 폴더 내 모든 하위 JSON 파일 (legal_chunks, all_chunks 등)을 스캔합니다.
         files = glob.glob(os.path.join(data_path, "**", "*.json"), recursive=True)
         all_chunks = []
         
@@ -66,7 +67,6 @@ class GraphBuilder:
             except Exception as e:
                 print(f"⚠️ 읽기 실패: {file_path}")
         
-        # [디버깅용] 첫 번째 데이터 구조 확인
         if len(all_chunks) > 0:
             print(f"👀 첫 번째 데이터 샘플 (키 확인): {list(all_chunks[0].keys())}")
             
@@ -74,14 +74,14 @@ class GraphBuilder:
         return all_chunks
 
     def create_nodes(self, chunks):
-        # [수정됨] coalesce 함수를 사용하여 metadata가 있든 없든 데이터를 찾아내도록 변경
+        # 모든 데이터를 Document 노드로 MERGE하고 속성을 설정
         query = """
         UNWIND $batch AS row
         MERGE (d:Document {id: row.chunk_id})
         SET d.content = row.content,
             d.source = coalesce(row.metadata.source, row.source, 'Unknown'),
             d.category = coalesce(row.metadata.category, row.category, 'General'),
-            d.type = coalesce(row.metadata.type, row.type, 'document'),
+            d.type = coalesce(row.metadata.type, row.doc_type, 'document'),
             d.page = coalesce(row.metadata.page, row.page, 1)
         """
         batch_size = 500
@@ -92,7 +92,7 @@ class GraphBuilder:
                 c['chunk_id'] = f"unknown_{i}"
             cleaned.append(c)
 
-        print("🚀 Neo4j에 데이터 저장 시작...")
+        print("🚀 Neo4j에 Document 노드 저장 시작...")
         with self.driver.session() as session:
             for i in tqdm(range(0, len(cleaned), batch_size), desc="Graph Node 생성"):
                 batch = cleaned[i:i+batch_size]

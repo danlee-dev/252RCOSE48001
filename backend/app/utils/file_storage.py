@@ -33,3 +33,33 @@ async def save_contract_file(user_id: int, file: UploadFile) -> str:
         
     # 클라이언트가 접근할 수 있는 URL 반환 (FastAPI StaticFiles 경로와 일치해야 함)
     return f"/storage/contracts/{user_id}/{filename}"
+
+# 파일 삭제 함수
+def delete_contract_file(file_url: str):
+    """
+    저장된 파일을 삭제합니다.
+    file_url: "/storage/contracts/1/contract.pdf" 형태
+    """
+    if not file_url:
+        return
+    # URL 앞의 /storage/ 등 제거 (필요시) -> 로컬 경로로 변환
+    # file_url 예시: /storage/contracts/1/test.pdf
+    # 실제 경로: backend/storage/contracts/1/test.pdf
+    
+    # 1. 상대 경로 파싱
+    relative_path = file_url.lstrip("/")
+    
+    # 2. backend 루트 기준 경로 찾기
+    # utils/file_storage.py -> utils -> app -> backend
+    backend_root = Path(__file__).parent.parent.parent
+    file_path = backend_root / relative_path
+    
+    # 3. 파일 삭제
+    if file_path.exists():
+        try:
+            os.remove(file_path)
+            print(f"🗑️ Deleted file: {file_path}")
+        except OSError as e:
+            print(f"Error deleting file: {e}")
+    else:
+        print(f"⚠️ File not found for deletion: {file_path}")

@@ -17,7 +17,7 @@ class DocumentChunker:
 
         files = {
             # "개정 표준근로계약서(2025년, 배포).json": self.chunk_standard_contract,  # 별도 체크리스트로 관리
-            "'25년 채용절차의 공정화에 관한 법률 업무 매뉴얼.json": self.chunk_hiring_manual,
+            "_25년 채용절차의 공정화에 관한 법률 업무 매뉴얼.json": self.chunk_hiring_manual,
             "개정 표준취업규칙(2025년, 배포).json": self.chunk_employment_rules,
             "2025년 적용 최저임금 안내.json": self.chunk_minimum_wage_guide,
             "★채용절차의 공정화에 관한 법률 리플릿.json": self.chunk_hiring_leaflet
@@ -460,9 +460,9 @@ class DocumentChunker:
 if __name__ == "__main__":
     # 프로젝트 루트 기준 절대 경로
     from pathlib import Path
-    project_root = Path(__file__).parent.parent.parent
-    input_dir = project_root / "ai/data/processed/documents/standard_contracts"
-    output_dir = project_root / "ai/data/processed/chunks"
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    input_dir = project_root / "ai" / "data" / "processed" / "documents" / "standard_contracts"
+    output_dir = project_root / "ai" / "data" / "processed" / "chunks"
 
     print(f"프로젝트 루트: {project_root}")
     print(f"입력 디렉토리: {input_dir}")

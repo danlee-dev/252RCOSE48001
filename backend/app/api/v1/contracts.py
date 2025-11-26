@@ -8,7 +8,7 @@ from app.schemas.contract import ContractResponse, ContractDetailResponse
 from app.api import deps
 from app.models.user import User
 from app.models.contract import Contract 
-from app.utils.file_storage import save_contract_file 
+from app.utils.file_storage import save_contract_file, delete_contract_file 
 from app.core.celery_app import celery_app 
 import requests
 import asyncio
@@ -159,44 +159,101 @@ async def read_contracts(
     
     return contracts
 
+@router.delete("/{contract_id}", status_code=204, summary="계약서 삭제")
+async def delete_contract(
+    contract_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    **[보호됨]** 특정 계약서를 삭제합니다. 
+    DB의 계약서 정보와 업로드된 실제 PDF 파일이 모두 삭제됩니다.
+    """
+    # 1. 계약서 조회 (내 계약서인지 확인)
+    stmt = select(Contract).where(Contract.id == contract_id, Contract.user_id == current_user.id)
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="계약서를 찾을 수 없습니다.")
+
+    # 2. 파일 삭제 (DB 삭제 전 수행)
+    try:
+        delete_contract_file(contract.file_url)
+    except Exception as e:
+        print(f"File deletion warning: {e}")
+        # 파일 삭제 실패해도 DB 삭제는 진행
+
+    # 3. DB 삭제
+    await db.delete(contract)
+    await db.commit()
+    
+    return
+
 # -------------------------------------------------------------------------
 # 🔴 [툴 API] Dify가 호출할 커스텀 툴 API 로직 구현
 # -------------------------------------------------------------------------
     
-# Muvera 검색 툴 (ES RRF 기반)
+# Muvera 검색 툴
 @router.get("/v1/search-muvera", 
-            summary="Dify Tool: Muvera 멀티 벡터 검색", 
-            include_in_schema=False, # 👈 사용자에게 노출 금지
-            status_code=status.HTTP_200_OK)
+            summary="[Tool] Muvera 멀티 벡터 검색 (유사 조항)", 
+            include_in_schema=True, # 🔴 [수정] 테스트를 위해 노출
+            status_code=status.HTTP_200_OK,
+            responses={
+                200: {
+                    "description": "검색 성공",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "context": [
+                                    {
+                                        "source": "근로기준법/law",
+                                        "text": "제17조(근로조건의 명시) 사용자는 근로계약을 체결할 때에 근로자에게 다음 각 호의 사항을 명시하여야 한다."
+                                    },
+                                    {
+                                        "source": "대법원 판례 2020다XXXX/precedent",
+                                        "text": "근로계약서에 명시된 근로조건은..."
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            })
 async def search_muvera(
-    query_text: str, 
+    query_text: str = Query(
+        ..., 
+        description="분석할 계약 조항 텍스트 (예: '제3조 임금은 매월 25일에 지급한다.')",
+        min_length=2
+    ), 
     es: Elasticsearch = Depends(get_es_client), 
     internal_api_key: str = Depends(verify_internal_api_key)
 ):
     """
-    **[내부 전용 API]** (Dify가 호출) 사용자의 조항을 FDE 벡터로 변환하여 ES에서 유사 조항을 검색합니다.
+    **[Dify 전용 Tool]** 사용자의 계약 조항을 분석하여 **Elasticsearch**의 Multi-Vector Index에서
+    가장 유사한 표준/법률 조항 청크(Chunk)를 검색합니다.
     
-    - **사용 주체:** Dify AI Agent
-    - **입력:** `query_text` (LLM이 추출한 계약 조항 텍스트)
-    - **출력 스키마:** `{"context": [{"source": "...", "text": "..."}]}`
-    - **인증:** `X-Internal-API-Key` 헤더 필요.
+    - **역할:** RAG(Retrieval-Augmented Generation)를 위한 법률적 근거(Context) 제공
+    - **입력:** 분석 대상 계약 조항 (자연어 문장)
+    - **출력:** 유사도가 높은 상위 5개 법률/판례 조항 리스트
+    
+    **테스트 방법:**
+    1. 상단 `Authorize` 버튼 클릭 -> `Client credentials location` 무시.
+    2. 이 API의 자물쇠 아이콘 클릭 -> `X-Internal-API-Key` 입력란에 `.env`의 `INTERNAL_API_KEY` 값 입력.
+    3. `query_text`에 "최저임금 미달" 등 검색어 입력 후 실행.
     """
     if GLOBAL_EMBEDDING_MODEL is None or FDE_CONFIG is None:
         raise HTTPException(status_code=503, detail="Embedding model or FDE config not loaded.")
         
     # 1. 쿼리 텍스트를 FDE 벡터로 변환 (MUVERA 로직 적용)
     try:
-        # 문장 분할 
         sentences = APISentenceSplitter.split_sentences(query_text)
-        
-        # 각 문장 임베딩
         sentence_embeddings = GLOBAL_EMBEDDING_MODEL.encode(
             sentences, 
             convert_to_numpy=True, 
             normalize_embeddings=True
         )
         
-        # 🔴 [핵심] FDE로 압축 (generate_query_fde 사용)
         query_vector_fde = generate_query_fde(sentence_embeddings, FDE_CONFIG)
         query_vector = query_vector_fde.tolist() 
         
@@ -214,7 +271,6 @@ async def search_muvera(
     }
     
     try:
-        # 3. ES 검색 실행
         response = es.search(
             index=INDEX_NAME,
             knn=search_query,
@@ -222,7 +278,6 @@ async def search_muvera(
             size=5
         )
         
-        # 4. 결과 파싱 (Dify Context 형식에 맞춤)
         context = []
         for hit in response['hits']['hits']:
             source = hit['_source']
@@ -240,27 +295,50 @@ async def search_muvera(
 
 # GraphDB 위험 규칙 검색 툴
 @router.get("/v1/search-risk-pattern", 
-            summary="Dify Tool: GraphDB 위험 규칙 검색", 
-            include_in_schema=False, # 👈 사용자에게 노출 금지
-            status_code=status.HTTP_200_OK)
+            summary="[Tool] GraphDB 위험 규칙 검색 (Regex)", 
+            include_in_schema=True, # 🔴 [수정] 테스트를 위해 노출
+            status_code=status.HTTP_200_OK,
+            responses={
+                200: {
+                    "description": "검색 성공",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "context": [
+                                    {
+                                        "rule_name": "포괄임금제",
+                                        "text": "위험 패턴 '포괄임금제' (임금 조항, 위험도: High): 연장근로수당을 포함하여 지급하는..."
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            })
 async def search_risk_pattern(
-    query_text: str, 
+    query_text: str = Query(
+        ..., 
+        description="분석할 계약 조항 텍스트 (예: '모든 수당을 포함하여 포괄 지급한다.')",
+        min_length=2
+    ), 
     driver: Driver = Depends(get_neo4j_driver),
     internal_api_key: str = Depends(verify_internal_api_key)
 ):
     """ 
-    **[내부 전용 API]** 사용자의 조항과 관련된 법률 지식 그래프(Neo4j)에서
-    위험 패턴, 규칙, 법령 관계 등을 검색하는 커스텀 툴입니다.
+    **[Dify 전용 Tool]** 사용자의 조항 텍스트에서 키워드(Regex)를 추출하여
+    **Neo4j** 지식 그래프에 정의된 위험 패턴(RiskPattern)을 검색합니다.
     
-    - **사용 주체:** Dify AI Agent
-    - **입력:** `query_text` (LLM이 추출한 계약 조항 텍스트)
-    - **출력 스키마:** `{"context": [{"rule_name": "...", "text": "..."}]}`
-    - **인증:** `X-Internal-API-Key` 헤더 필요.
+    - **역할:** 규칙 기반(Rule-based)의 명확한 위험 요소 탐지
+    - **입력:** 분석 대상 계약 조항
+    - **출력:** 매칭된 위험 패턴의 이름, 설명, 위험도(High/Medium)
+    
+    **테스트 방법:**
+    1. `X-Internal-API-Key` 헤더에 `.env`의 `INTERNAL_API_KEY` 값 입력.
+    2. `query_text`에 "포괄하여 지급", "위약금" 등 위험 키워드가 포함된 문장 입력.
     """
     
     # 1. 7_seed_ontology.py에 정의된 Regex 기반 검색 로직 사용
     cypher_query = """
-    // 쿼리 텍스트에 포함된 단어를 바탕으로 RiskPattern 노드를 검색
     MATCH (r:RiskPattern)
     WHERE ANY(trigger IN r.triggers WHERE toLower($queryText) CONTAINS toLower(trigger))
     OPTIONAL MATCH (r)-[:IS_A_TYPE_OF]->(c:ClauseType)
@@ -268,11 +346,9 @@ async def search_risk_pattern(
     """
     
     try:
-        # Neo4j 세션 열기 (basic_auth를 사용하여 연결 인증)
         with driver.session(auth=basic_auth(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))) as session:
             result = session.run(cypher_query, queryText=query_text).data()
             
-            # 2. 결과 파싱 (Dify Context 형식에 맞춤)
             context = []
             for record in result:
                 context.append({
@@ -280,8 +356,8 @@ async def search_risk_pattern(
                     "text": f"위험 패턴 '{record['name']}' ({record['clauseType']} 조항, 위험도: {record['level']}): {record['explanation']}"
                 })
             
-            # 3. 결과가 없으면 임시 메시지 반환
             if not context:
+                # 검색 결과가 없을 때 빈 리스트 대신 안내 메시지 반환 (Dify가 이해하기 좋음)
                 return {"context": [{"text": "검색된 위험 규칙이 없습니다."}]}
             
             return {"context": context}

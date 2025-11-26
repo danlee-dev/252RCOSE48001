@@ -3,12 +3,11 @@ from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
 
-# 1. 프로젝트 루트의 .env 파일 로드
+# 1. 환경 설정
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
 load_dotenv(os.path.join(root_dir, ".env"))
 
-# 2. 환경변수에서 접속 정보 가져오기 (없으면 기본값)
 URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 USER = os.getenv("NEO4J_USER", "neo4j")
 PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
@@ -31,12 +30,12 @@ class OntologyBuilder:
         with self.driver.session() as session:
             for q in queries:
                 session.run(q)
-        print("✅ 인덱스 생성 완료")
+        print("✅ 인덱스 설정 완료")
 
     def create_schema(self):
         print("🧠 온톨로지(지식 체계) 구축 시작...")
         
-        # 1. 조항 유형
+        # 1. 조항 유형 (ClauseType) 데이터 정의
         clause_types = [
             {
                 "name": "임금", 
@@ -70,7 +69,7 @@ class OntologyBuilder:
             }
         ]
 
-        # 2. 위험 패턴
+        # 2. 위험 패턴 (RiskPattern) 데이터 정의
         risk_patterns = [
             {
                 "name": "포괄임금제",
@@ -107,16 +106,16 @@ class OntologyBuilder:
         ]
 
         with self.driver.session() as session:
-            # Step 1: ClauseType
-            print("   Step 1: 조항 유형 생성 중...")
+            # Step 1: ClauseType 생성
+            print("   Step 1: 조항 유형 생성 중...")
             for ct in clause_types:
                 session.run("""
                 MERGE (c:ClauseType {name: $name})
                 SET c.isRequired = $required, c.explanation = $desc
                 """, name=ct["name"], required=ct["isRequired"], desc=ct["desc"])
 
-            # Step 2: RiskPattern
-            print("   Step 2: 위험 패턴 생성 중...")
+            # Step 2: RiskPattern 생성 및 IS_A_TYPE_OF 연결
+            print("   Step 2: 위험 패턴 생성 및 유형 연결 중...")
             for rp in risk_patterns:
                 session.run("""
                 MERGE (r:RiskPattern {name: $name})
@@ -131,28 +130,26 @@ class OntologyBuilder:
                 name=rp["name"], level=rp["riskLevel"], 
                 exp=rp["explanation"], triggers=rp["triggers"], typeName=rp["type"])
 
-            # Step 3: 법령 연결 (조건 완화됨!)
-            print("   Step 3: 법령 데이터 연결 중...")
-            
+            # Step 3: 위험 -> 근거 자료(판례/해석) 연결 (멀티홉 1단계)
+            print("   Step 3: 위험 패턴과 근거 자료(판례/해석) 연결 중...")
             for rp in risk_patterns:
-                if "law_keywords" in rp:
-                    query_link = """
-                    MATCH (r:RiskPattern {name: $riskName})
-                    MATCH (d:Document)
-                    // [수정됨] d.type 체크를 제거하여 모든 문서에서 검색하도록 변경
-                    WHERE ANY(word IN $keywords WHERE d.content CONTAINS word)
-                    
-                    WITH r, d
-                    // 근로기준법 우선순위 정렬
-                    ORDER BY 
-                        CASE WHEN d.category CONTAINS '근로기준법' THEN 1 ELSE 2 END,
-                        d.id
-                    LIMIT 5
-                    
-                    MERGE (r)-[:RELATES_TO]->(d)
-                    """
-                    session.run(query_link, riskName=rp["name"], keywords=rp["law_keywords"])
-                    print(f"      Connected: {rp['name']} (clean link)")
+                # 1. 위험 -> 판례 (HAS_CASE) 연결
+                query_case = """
+                MATCH (r:RiskPattern {name: $riskName})
+                MATCH (p:Precedent) // 🔴 라벨링 된 Precedent 노드를 사용
+                WHERE ANY(t IN $triggers WHERE p.content CONTAINS t)
+                MERGE (r)-[:HAS_CASE]->(p)
+                """
+                session.run(query_case, riskName=rp["name"], triggers=rp["triggers"])
+                
+                # 2. 위험 -> 행정해석 (HAS_INTERPRETATION) 연결
+                query_interp = """
+                MATCH (r:RiskPattern {name: $riskName})
+                MATCH (i:Interpretation) // 🔴 라벨링 된 Interpretation 노드를 사용
+                WHERE ANY(t IN $triggers WHERE i.content CONTAINS t)
+                MERGE (r)-[:HAS_INTERPRETATION]->(i)
+                """
+                session.run(query_interp, riskName=rp["name"], triggers=rp["triggers"])
 
         print("✅ 온톨로지 구축 완료!")
 

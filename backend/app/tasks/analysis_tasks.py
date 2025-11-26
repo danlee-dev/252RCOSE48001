@@ -1,32 +1,34 @@
 import os
 import sys
 import asyncio
+import json
 from sqlalchemy.future import select
 from app.core.database import AsyncSessionLocal
 from app.models.contract import Contract
 from app.core.celery_app import celery_app
-from app.models.user import User 
 import requests
-from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException
-from app.core.config import settings
 
 # -------------------------------------------------------------------------
-# 🔴 [Celery Task] Dify 호출 및 DB 업데이트 로직 (Worker에 의해 실행)
+# 🔴 [CRITICAL FIX] Worker 프로세스 내에서 app 모듈 경로를 찾도록 설정
 # -------------------------------------------------------------------------
+from pathlib import Path
+backend_dir = Path(__file__).parent.parent.parent.resolve()
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir)) 
+# -------------------------------------------------------------------------
+
+# 🔴 [추가] 전처리기 클래스 import
+from app.ai.preprocessor import ContractPreprocessor
 
 @celery_app.task(name="analyze_contract")
 def analyze_contract_task(contract_id: int):
     """
-    Celery Task: Dify API를 호출하여 계약서를 분석하고 결과를 DB에 저장합니다.
+    Celery Task: 
+    1. PDF 전처리 (텍스트 추출 및 청킹)
+    2. Dify API 호출 (추출된 텍스트 전송)
+    3. 결과 파싱 및 DB 저장 (JSONB)
     """
-    # 🔴 [CRITICAL FIX] Task 실행 시점에 경로 재설정
-    # Worker 프로세스가 Task 실행 시 app 모듈을 찾도록 보장합니다.
-    from pathlib import Path
-    backend_dir = Path(__file__).parent.parent.parent.resolve()
-    if str(backend_dir) not in sys.path:
-        sys.path.insert(0, str(backend_dir))
-
+    
     async def run_analysis():
         async with AsyncSessionLocal() as db:
             stmt = select(Contract).where(Contract.id == contract_id)
@@ -37,49 +39,74 @@ def analyze_contract_task(contract_id: int):
                 print(f"Error: Contract {contract_id} not found.")
                 return
 
-            print(f"[{contract_id}] Dify analysis STARTING for {contract.title}...")
+            print(f"[{contract_id}] Processing START for {contract.title}...")
             
-            # DB 상태를 PROCESSING으로 즉시 업데이트
             contract.status = "PROCESSING"
             await db.commit()
             
-            # 2. Dify API 동기식 호출
             try:
+                # -------------------------------------------------------
+                # 1. [전처리 단계] PDF -> 텍스트 추출
+                # -------------------------------------------------------
+                # DB에 저장된 file_url(/storage/...)을 로컬 절대 경로로 변환
+                relative_path = contract.file_url.lstrip("/")
+                pdf_path = backend_dir / relative_path
+                
+                processor = ContractPreprocessor()
+                
+                # (1) 텍스트 추출 (pdfplumber 사용)
+                full_text = processor.extract_text(str(pdf_path))
+                if not full_text:
+                    raise Exception("PDF 텍스트 추출 실패 (빈 내용)")
+                
+                # (2) 청킹 (로그용 또는 추후 검색용)
+                chunks = processor.chunk_text(full_text)
+                print(f"[{contract_id}] Extracted text length: {len(full_text)}, Chunks: {len(chunks)}")
+
+                # -------------------------------------------------------
+                # 2. [Dify 호출 단계] 추출된 텍스트 전송
+                # -------------------------------------------------------
                 DIFY_API_URL = os.getenv("DIFY_API_URL")
                 DIFY_API_KEY = os.getenv("DIFY_API_KEY")
                 
-                response = requests.post(
-                    DIFY_API_URL, 
-                    headers={"Authorization": f"Bearer {DIFY_API_KEY}", "Content-Type": "application/json"}, 
-                    json={
-                        "inputs": {"file_url": contract.file_url}, 
-                        "query": "이 계약서의 위험 조항을 분석하고 등급을 High/Medium/Low로 분류해줘.",
-                        "user": str(contract.user_id)
+                payload = {
+                    "inputs": {
+                        # 🔴 [핵심] 전처리된 텍스트를 Dify 변수에 주입
+                        "contract_text": full_text, 
+                        "file_url": contract.file_url # 참고용 원본 URL
                     },
-                    timeout=300
-                )
-                response.raise_for_status() 
-                dify_result = response.json()
+                    "query": "이 계약서의 위험 조항을 분석해줘.", 
+                    "user": str(contract.user_id),
+                    "response_mode": "blocking"
+                }
                 
-                # 3. DB 상태 업데이트 및 결과 저장
+                headers = {"Authorization": f"Bearer {DIFY_API_KEY}", "Content-Type": "application/json"}
+                
+                print(f"[{contract_id}] Calling Dify API...")
+                response = requests.post(DIFY_API_URL, headers=headers, json=payload, timeout=300)
+                response.raise_for_status()
+                
+                dify_response = response.json()
+                
+                # -------------------------------------------------------
+                # 3. [저장 단계] 결과 저장 (JSONB)
+                # -------------------------------------------------------
                 contract.status = "COMPLETED"
-                contract.analysis_result = dify_result.get("answer", dify_result) 
-                contract.risk_level = "Medium" 
+                contract.analysis_result = dify_response # Dify 전체 응답 저장
+                
+                # 임시 위험도 설정 (나중에 Dify 응답 파싱 로직 추가 필요)
+                # 예: contract.risk_level = dify_response.get('data', {}).get('outputs', {}).get('risk_level', 'Unknown')
+                contract.risk_level = "Check" 
                 
                 await db.commit()
-                # TODO: WebSocket 푸시 알림 로직 추가
-                print(f"[{contract_id}] Analysis COMPLETED. Status updated.")
+                print(f"[{contract_id}] Analysis COMPLETED successfully.")
                 
-            except requests.exceptions.RequestException as e:
-                contract.status = "FAILED"
-                print(f"[{contract_id}] Dify API Call FAILED: {e}")
-                await db.commit()
             except Exception as e:
                 contract.status = "FAILED"
-                print(f"[{contract_id}] General Error in Worker: {e}")
+                print(f"[{contract_id}] Error: {e}")
                 await db.commit()
 
-    # 🔴 [CRITICAL FIX] Windows 환경 호환성 코드
+    # Windows 환경 호환성 코드
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         
