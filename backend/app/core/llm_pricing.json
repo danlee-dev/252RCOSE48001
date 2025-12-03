@@ -1,0 +1,123 @@
+{
+  "last_updated": "2025-12",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "models": {
+    "gemini": {
+      "gemini-2.5-flash": {
+        "provider": "google",
+        "input": 0.30,
+        "output": 2.50,
+        "context_window": 1000000,
+        "max_output": 64000,
+        "notes": "Thinking mode included, best price-performance",
+        "use_case": "large_scale_processing, agentic_tasks"
+      },
+      "gemini-2.5-flash-lite": {
+        "provider": "google",
+        "input": 0.10,
+        "output": 0.40,
+        "context_window": 1000000,
+        "max_output": 64000,
+        "notes": "Most cost-efficient, fastest in 2.5 family",
+        "use_case": "high_volume, translation, classification, retrieval_summarization"
+      },
+      "gemini-3-pro": {
+        "provider": "google",
+        "input": 2.00,
+        "output": 12.00,
+        "input_long_context": 4.00,
+        "output_long_context": 18.00,
+        "long_context_threshold": 200000,
+        "context_window": 1000000,
+        "max_output": 64000,
+        "notes": "Preview pricing, may change. Free tier available during preview",
+        "use_case": "complex_reasoning, high_quality_output"
+      }
+    },
+    "openai": {
+      "gpt-5": {
+        "provider": "openai",
+        "input": 1.25,
+        "output": 10.00,
+        "cached_input": 0.125,
+        "context_window": 128000,
+        "notes": "Best for coding and agentic tasks",
+        "use_case": "complex_legal_reasoning, response_generation"
+      },
+      "gpt-5-mini": {
+        "provider": "openai",
+        "input": 0.30,
+        "output": 1.50,
+        "cached_input": 0.03,
+        "context_window": 128000,
+        "notes": "Faster, more cost-efficient version of GPT-5",
+        "use_case": "general_tasks, cost_sensitive_applications"
+      },
+      "gpt-4o-mini": {
+        "provider": "openai",
+        "input": 0.15,
+        "output": 0.60,
+        "cached_input": 0.075,
+        "context_window": 128000,
+        "notes": "Previous generation, still available",
+        "use_case": "legacy_support, simple_tasks"
+      },
+      "o1": {
+        "provider": "openai",
+        "input": 15.00,
+        "output": 60.00,
+        "context_window": 200000,
+        "notes": "Reasoning tokens billed as output, high cost for complex reasoning",
+        "use_case": "deep_reasoning, math, science"
+      }
+    }
+  },
+  "recommended_config": {
+    "docscanner_ai": {
+      "retrieval_summarization": {
+        "model": "gemini-2.5-flash-lite",
+        "reason": "Large input, cheap, fast - ideal for processing retrieved documents"
+      },
+      "legal_reasoning": {
+        "model": "gpt-5-mini",
+        "reason": "Strong instruction following, good for complex legal interpretation"
+      },
+      "final_response": {
+        "model": "gpt-5-mini",
+        "reason": "High quality output for user-facing responses"
+      }
+    }
+  },
+  "cost_examples": {
+    "single_contract_analysis": {
+      "description": "Typical contract analysis (10K input tokens, 2K output tokens)",
+      "gemini-2.5-flash-lite": {
+        "input_cost": 0.001,
+        "output_cost": 0.0008,
+        "total": 0.0018
+      },
+      "gpt-5-mini": {
+        "input_cost": 0.003,
+        "output_cost": 0.003,
+        "total": 0.006
+      }
+    },
+    "monthly_estimate_1000_contracts": {
+      "hybrid_approach": {
+        "retrieval_gemini": 1.80,
+        "reasoning_openai": 6.00,
+        "total_usd": 7.80,
+        "total_krw": 10140
+      }
+    }
+  },
+  "budget_allocation": {
+    "recommended": {
+      "gemini_monthly_usd": 10,
+      "openai_monthly_usd": 10,
+      "total_monthly_usd": 20,
+      "estimated_contracts": 2500
+    }
+  }
+}
