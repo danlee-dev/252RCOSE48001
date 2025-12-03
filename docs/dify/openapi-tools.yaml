@@ -1,0 +1,453 @@
+openapi: 3.0.3
+info:
+  title: DocScanner AI Analysis Tools
+  description: |
+    DocScanner AI의 고급 분석 기능을 Dify에서 Tool로 호출하기 위한 API 명세입니다.
+
+    ## 주요 기능
+    - Legal Stress Test: 최저임금, 연장근로수당 등 수치 시뮬레이션
+    - Generative Redlining: 위험 조항 탐지 및 수정 제안
+    - LLM-as-a-Judge: AI 분석 결과 신뢰도 평가
+    - PII Masking: 개인정보 비식별화
+    - HyDE: 검색 쿼리 강화
+    - Constitutional AI: 노동법 원칙 기반 검토
+  version: 1.0.0
+  contact:
+    name: DocScanner AI Team
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server
+  - url: https://your-domain.com/api/v1
+    description: Production Server
+
+paths:
+  /analysis/stress-test:
+    post:
+      operationId: runLegalStressTest
+      summary: Legal Stress Test 실행
+      description: |
+        계약서 텍스트를 분석하여 최저임금 미달, 연장근로수당 미지급 등
+        법적 위반 여부를 수치적으로 시뮬레이션합니다.
+
+        ## 분석 항목
+        - 최저임금 위반 여부 (2025년 기준 시급 10,030원)
+        - 연장근로수당 계산 (통상임금의 50% 가산)
+        - 야간근로수당 계산 (22:00~06:00)
+        - 휴일근로수당 계산
+        - 주휴수당 검증
+        - 연차휴가 일수 검증
+      tags:
+        - Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contract_text
+              properties:
+                contract_text:
+                  type: string
+                  description: 분석할 계약서 텍스트
+                  example: "월 급여 200만원 (연장근로수당 포함), 주 52시간 근무"
+                monthly_hours:
+                  type: integer
+                  description: 월 소정근로시간 (기본값 209시간)
+                  default: 209
+                include_details:
+                  type: boolean
+                  description: 상세 분석 포함 여부
+                  default: true
+      responses:
+        '200':
+          description: 분석 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  violations:
+                    type: array
+                    description: 발견된 법적 위반 목록
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          example: "최저임금_미달"
+                        severity:
+                          type: string
+                          enum: [High, Medium, Low]
+                        description:
+                          type: string
+                        underpayment:
+                          type: number
+                          description: 예상 체불액 (원)
+                  total_underpayment:
+                    type: number
+                    description: 총 예상 체불액 (원)
+                  annual_underpayment:
+                    type: number
+                    description: 연간 예상 체불액 (원)
+                  risk_score:
+                    type: number
+                    description: 위험 점수 (0.0~1.0)
+                  summary:
+                    type: string
+                    description: 분석 요약
+
+  /analysis/redlining:
+    post:
+      operationId: runGenerativeRedlining
+      summary: Generative Redlining 실행
+      description: |
+        계약서에서 위험 조항을 탐지하고 수정 제안을 생성합니다.
+
+        ## 탐지 위험 패턴
+        - 포괄임금제 조항
+        - 일방적 해지 조항
+        - 과도한 위약금/손해배상
+        - 경쟁금지 조항
+        - 퇴직 제한 조항
+      tags:
+        - Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contract_text
+              properties:
+                contract_text:
+                  type: string
+                  description: 분석할 계약서 텍스트
+                output_format:
+                  type: string
+                  enum: [json, diff, html]
+                  description: 출력 형식
+                  default: json
+      responses:
+        '200':
+          description: 수정 제안 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          description: 변경 유형 (delete, modify, add)
+                        original:
+                          type: string
+                          description: 원본 텍스트
+                        revised:
+                          type: string
+                          description: 수정된 텍스트
+                        reason:
+                          type: string
+                          description: 수정 이유
+                        legal_basis:
+                          type: string
+                          description: 법적 근거
+                        severity:
+                          type: string
+                          enum: [High, Medium, Low]
+                  change_count:
+                    type: integer
+                  high_risk_count:
+                    type: integer
+
+  /analysis/judge:
+    post:
+      operationId: evaluateWithJudge
+      summary: LLM-as-a-Judge 신뢰도 평가
+      description: |
+        AI 분석 결과의 신뢰도를 평가합니다.
+
+        ## 평가 기준
+        - 정확성: 법률 해석의 정확성
+        - 일관성: 근거와 결론의 일관성
+        - 완전성: 분석의 완전성
+        - 관련성: 질문/계약서와의 관련성
+        - 법적 근거: 법적 근거의 타당성
+      tags:
+        - Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - analysis
+              properties:
+                analysis:
+                  type: string
+                  description: 평가할 AI 분석 결과
+                context:
+                  type: string
+                  description: 분석에 사용된 컨텍스트/근거
+                  default: ""
+      responses:
+        '200':
+          description: 평가 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overall_score:
+                    type: number
+                    description: 전체 신뢰도 점수 (0.0~1.0)
+                  confidence_level:
+                    type: string
+                    enum: [High, Medium, Low]
+                  is_reliable:
+                    type: boolean
+                  verdict:
+                    type: string
+                    description: 최종 판정
+                  scores:
+                    type: object
+                    description: 항목별 점수
+                  recommendations:
+                    type: array
+                    items:
+                      type: string
+
+  /analysis/pii-mask:
+    post:
+      operationId: maskPII
+      summary: PII 마스킹
+      description: |
+        텍스트에서 개인정보를 탐지하고 마스킹합니다.
+
+        ## 탐지 PII 유형
+        - 주민등록번호
+        - 전화번호
+        - 이메일
+        - 은행 계좌번호
+        - 주소
+        - 이름
+      tags:
+        - Privacy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: 마스킹할 텍스트
+                format_preserving:
+                  type: boolean
+                  description: 형식 유지 마스킹
+                  default: true
+      responses:
+        '200':
+          description: 마스킹 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  masked_text:
+                    type: string
+                  pii_count:
+                    type: integer
+                  pii_types:
+                    type: object
+
+  /analysis/hyde:
+    post:
+      operationId: enhanceQueryWithHyDE
+      summary: HyDE 검색 쿼리 강화
+      description: |
+        구어체 질문을 법률 전문 용어로 변환하여 검색을 강화합니다.
+        Hypothetical Document Embeddings 기법 적용.
+      tags:
+        - Search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: 원본 검색 쿼리
+                  example: "사장님이 맘대로 잘라도 돼?"
+                prompt_type:
+                  type: string
+                  enum: [labor_law, contract, risk]
+                  description: 프롬프트 유형
+                  default: labor_law
+      responses:
+        '200':
+          description: 쿼리 강화 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original_query:
+                    type: string
+                  hypothetical_document:
+                    type: string
+                    description: 생성된 가상 법률 문서
+                  enhanced_query:
+                    type: string
+                    description: 강화된 검색 쿼리
+
+  /analysis/constitutional-review:
+    post:
+      operationId: constitutionalReview
+      summary: Constitutional AI 검토
+      description: |
+        AI 응답이 노동법 원칙에 부합하는지 검토하고 필요시 수정합니다.
+
+        ## 노동법 헌법 원칙
+        1. 인간 존엄성 존중
+        2. 작성자 불이익 원칙
+        3. 최저 기준 준수
+        4. 균등 대우
+        5. 안전 우선
+        6. 명시 의무
+      tags:
+        - Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - response
+              properties:
+                response:
+                  type: string
+                  description: 검토할 AI 응답
+                context:
+                  type: string
+                  description: 컨텍스트
+                  default: ""
+      responses:
+        '200':
+          description: 검토 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original_response:
+                    type: string
+                  revised_response:
+                    type: string
+                  was_revised:
+                    type: boolean
+                  critique:
+                    type: string
+                  principles_violated:
+                    type: array
+                    items:
+                      type: string
+
+  /contracts/v1/search-muvera:
+    get:
+      operationId: searchWithMuvera
+      summary: MUVERA 멀티벡터 검색
+      description: |
+        MUVERA (Multi-Vector Retrieval) 기반으로 유사한 법률 조항을 검색합니다.
+        FDE (Fixed Dimensional Encoding) 적용.
+      tags:
+        - Search
+      parameters:
+        - name: query_text
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 검색할 텍스트
+      responses:
+        '200':
+          description: 검색 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  context:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                        text:
+                          type: string
+
+  /contracts/v1/search-risk-pattern:
+    get:
+      operationId: searchRiskPattern
+      summary: GraphDB 위험 패턴 검색
+      description: Neo4j 지식 그래프에서 위험 패턴을 검색합니다.
+      tags:
+        - Search
+      parameters:
+        - name: query_text
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 검색할 텍스트
+      responses:
+        '200':
+          description: 검색 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  context:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule_name:
+                          type: string
+                        text:
+                          type: string
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-API-Key
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Analysis
+    description: 계약서 분석 기능
+  - name: Search
+    description: 법률 문서 검색
+  - name: Privacy
+    description: 개인정보 보호
