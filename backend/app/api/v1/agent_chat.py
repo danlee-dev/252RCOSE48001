@@ -25,6 +25,86 @@ from app.ai.langgraph_agent import get_chat_agent, StreamEvent
 router = APIRouter(prefix="/agent", tags=["Agent Chat"])
 
 
+def build_analysis_summary(analysis_result: dict) -> str:
+    """
+    Build a structured summary of the contract analysis for agent context.
+
+    This summary allows the AI agent to understand all detected risks,
+    legal violations, and suggestions without the user having to repeat them.
+    """
+    if not analysis_result:
+        return ""
+
+    parts = []
+
+    # 1. Overall risk level
+    risk_level = analysis_result.get("risk_level", "")
+    if risk_level:
+        parts.append(f"[전체 위험도] {risk_level}")
+
+    # 2. Underpayment amounts
+    stress_test = analysis_result.get("stress_test", {})
+    monthly = stress_test.get("total_underpayment", 0)
+    annual = stress_test.get("annual_underpayment", 0)
+    if monthly or annual:
+        parts.append(f"[체불 예상액] 월 {monthly:,}원 / 연 {annual:,}원")
+
+    # 3. Risk violations summary
+    violations = stress_test.get("violations", [])
+    if violations:
+        parts.append(f"\n[발견된 위험 조항 {len(violations)}건]")
+
+        # Group by severity
+        high_risks = []
+        medium_risks = []
+        low_risks = []
+
+        for v in violations:
+            clause_num = v.get("clause_number", "")
+            v_type = v.get("type", "")
+            severity = v.get("severity", "").upper()
+            description = v.get("description", "")[:150]
+            legal_basis = v.get("legal_basis", "")
+            suggestion = v.get("suggestion", "")[:100]
+
+            entry = f"  - [{clause_num}] {v_type}"
+            if description:
+                entry += f"\n    사유: {description}"
+            if legal_basis:
+                entry += f"\n    법적근거: {legal_basis}"
+            if suggestion:
+                entry += f"\n    수정제안: {suggestion}..."
+
+            if severity in ["HIGH", "CRITICAL"]:
+                high_risks.append(entry)
+            elif severity == "MEDIUM":
+                medium_risks.append(entry)
+            else:
+                low_risks.append(entry)
+
+        if high_risks:
+            parts.append(f"\n* HIGH 위험 ({len(high_risks)}건):")
+            parts.extend(high_risks[:5])  # Top 5 high risks
+            if len(high_risks) > 5:
+                parts.append(f"  ... 외 {len(high_risks) - 5}건")
+
+        if medium_risks:
+            parts.append(f"\n* MEDIUM 위험 ({len(medium_risks)}건):")
+            parts.extend(medium_risks[:3])
+            if len(medium_risks) > 3:
+                parts.append(f"  ... 외 {len(medium_risks) - 3}건")
+
+        if low_risks:
+            parts.append(f"\n* LOW 위험 ({len(low_risks)}건)")
+
+    # 4. Analysis summary text
+    summary = analysis_result.get("analysis_summary", "")
+    if summary:
+        parts.append(f"\n[분석 요약]\n{summary[:300]}")
+
+    return "\n".join(parts)
+
+
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
@@ -134,23 +214,11 @@ async def stream_chat_with_history(
     if request.include_contract and contract.extracted_text:
         contract_text = contract.extracted_text
 
-    # Get analysis result summary for search query context
+    # Build comprehensive analysis summary for agent context
     analysis_summary = ""
     if contract.analysis_result:
-        try:
-            result = contract.analysis_result
-            # Extract key violations for context
-            if "stress_test" in result and "violations" in result["stress_test"]:
-                violations = result["stress_test"]["violations"][:5]
-                violation_texts = []
-                for v in violations:
-                    v_type = v.get("type", "")
-                    v_desc = v.get("description", "")[:80]
-                    violation_texts.append(f"- {v_type}: {v_desc}")
-                if violation_texts:
-                    analysis_summary = "발견된 위험 조항:\n" + "\n".join(violation_texts)
-        except Exception:
-            pass
+        analysis_summary = build_analysis_summary(contract.analysis_result)
+        print(f">>> [agent_chat] Analysis summary length: {len(analysis_summary)} chars")
 
     # Convert history
     chat_history = [{"role": msg.role, "content": msg.content} for msg in request.history]

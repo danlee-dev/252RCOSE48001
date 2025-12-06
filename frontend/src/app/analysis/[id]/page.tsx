@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import dynamic from "next/dynamic";
 import { ContractDetail, contractsApi, authApi, RiskClause, StressTestViolation, agentChatApi, AgentStreamEvent, AgentChatMessage } from "@/lib/api";
 import {
   IconArrowLeft,
@@ -16,12 +17,22 @@ import {
   IconChat,
   IconSend,
   IconClose,
-  IconZoomIn,
-  IconZoomOut,
-  IconDownload,
   IconInfo,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
+
+// PDF 뷰어는 클라이언트 사이드에서만 로드
+const PDFViewer = dynamic(() => import("@/components/pdf-viewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full bg-white">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-gray-500">PDF 뷰어 로딩 중...</p>
+      </div>
+    </div>
+  ),
+});
 
 interface AnalysisPageProps {
   params: Promise<{
@@ -71,11 +82,9 @@ interface NormalizedClause {
 interface RiskClauseItemProps {
   clause: NormalizedClause;
   index: number;
-  isHighlighted?: boolean;
-  onHighlight?: (clause: NormalizedClause) => void;
 }
 
-function RiskClauseItem({ clause, index, isHighlighted, onHighlight }: RiskClauseItemProps) {
+function RiskClauseItem({ clause, index }: RiskClauseItemProps) {
   const [expanded, setExpanded] = useState(false);
 
   const getLevelStyles = (level: string) => {
@@ -85,22 +94,14 @@ function RiskClauseItem({ clause, index, isHighlighted, onHighlight }: RiskClaus
     return "border-l-green-500 bg-gradient-to-r from-green-50/80 to-transparent";
   };
 
-  const handleClick = () => {
-    setExpanded(!expanded);
-    if (onHighlight) {
-      onHighlight(clause);
-    }
-  };
-
   return (
     <div className={cn(
       "border-l-4 rounded-xl overflow-hidden transition-all duration-200",
       getLevelStyles(clause.level),
-      expanded && "shadow-sm",
-      isHighlighted && "ring-2 ring-blue-500 ring-offset-2"
+      expanded && "shadow-sm"
     )}>
       <button
-        onClick={handleClick}
+        onClick={() => setExpanded(!expanded)}
         className="w-full p-4 text-left flex items-start gap-3 hover:bg-white/50 transition-colors"
       >
         <span className={cn(
@@ -423,11 +424,11 @@ function ChatPanel({ contractId, initialQuestion, messages, setMessages, onClose
   }
 
   return (
-    <div className="flex flex-col h-full animate-slideInRight">
+    <div className="flex flex-col h-full animate-slideInRight safe-area-inset">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+      <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 bg-gray-50/50">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
               <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" fill="currentColor" fillOpacity="0.2"/>
               <path d="M12 6C8.69 6 6 8.69 6 12C6 13.1 6.3 14.12 6.81 15.1L6 18L8.9 17.19C9.88 17.7 10.9 18 12 18C15.31 18 18 15.31 18 12C18 8.69 15.31 6 12 6Z" fill="currentColor"/>
@@ -437,30 +438,30 @@ function ChatPanel({ contractId, initialQuestion, messages, setMessages, onClose
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">AI 어시스턴트</h3>
-            <p className="text-[10px] text-gray-400">LangGraph Agent</p>
+            <h3 className="text-sm font-semibold text-gray-900 tracking-tight">AI 어시스턴트</h3>
+            <p className="text-[10px] text-gray-400 tracking-tight">LangGraph Agent</p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+          className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200 min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <IconClose size={18} />
         </button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
         {messages.length === 0 && !isStreaming && (
-          <div className="text-center py-12 animate-fadeIn">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-100 rounded-2xl mb-4">
-              <IconChat size={28} className="text-gray-400" />
+          <div className="text-center py-8 sm:py-12 animate-fadeIn">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-2xl mb-3 sm:mb-4">
+              <IconChat size={24} className="text-gray-400 sm:w-7 sm:h-7" />
             </div>
-            <p className="text-sm text-gray-500">이 계약서에 대해 질문하세요</p>
-            <p className="text-xs text-gray-400 mt-1">AI가 법령/판례를 검색하고 분석합니다</p>
+            <p className="text-sm text-gray-500 tracking-tight">이 계약서에 대해 질문하세요</p>
+            <p className="text-xs text-gray-400 mt-1 tracking-tight">AI가 법령/판례를 검색하고 분석합니다</p>
 
             {/* Quick prompts */}
-            <div className="mt-6 space-y-2">
+            <div className="mt-5 sm:mt-6 space-y-2">
               {[
                 "이 계약서의 주요 위험 요소는?",
                 "위약금 조항이 적법한가요?",
@@ -469,7 +470,7 @@ function ChatPanel({ contractId, initialQuestion, messages, setMessages, onClose
                 <button
                   key={prompt}
                   onClick={() => sendMessage(prompt)}
-                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                  className="block w-full text-left px-4 py-3 sm:py-2.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 tracking-tight min-h-[48px] sm:min-h-0"
                 >
                   {prompt}
                 </button>
@@ -552,7 +553,7 @@ function ChatPanel({ contractId, initialQuestion, messages, setMessages, onClose
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-100 bg-white">
+      <div className="p-3 sm:p-4 border-t border-gray-100 bg-white pb-safe">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -565,14 +566,14 @@ function ChatPanel({ contractId, initialQuestion, messages, setMessages, onClose
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="질문을 입력하세요..."
-            className="input-field text-sm"
+            className="input-field text-sm h-11 sm:h-auto"
             disabled={isStreaming}
           />
           {isStreaming ? (
             <button
               type="button"
               onClick={stopGeneration}
-              className="px-4 py-2.5 bg-red-500 text-white rounded-xl shadow-sm hover:bg-red-600 transition-all duration-200"
+              className="px-4 py-2.5 bg-red-500 text-white rounded-xl shadow-sm hover:bg-red-600 transition-all duration-200 min-w-[48px] min-h-[44px] flex items-center justify-center flex-shrink-0"
             >
               <IconClose size={18} />
             </button>
@@ -580,7 +581,7 @@ function ChatPanel({ contractId, initialQuestion, messages, setMessages, onClose
             <button
               type="submit"
               disabled={!input.trim()}
-              className="px-4 py-2.5 bg-gray-900 text-white rounded-xl shadow-sm hover:bg-gray-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="px-4 py-2.5 bg-gray-900 text-white rounded-xl shadow-sm hover:bg-gray-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 min-w-[48px] min-h-[44px] flex items-center justify-center flex-shrink-0"
             >
               <IconSend size={18} />
             </button>
@@ -601,11 +602,13 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
   const [showChat, setShowChat] = useState(false);
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string | undefined>();
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); // Persistent chat messages
+  const [chatWidth, setChatWidth] = useState(384); // Default: 24rem = 384px
+  const [isResizing, setIsResizing] = useState(false);
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
-  const [pdfScale, setPdfScale] = useState(1);
-  const [highlightedClause, setHighlightedClause] = useState<NormalizedClause | null>(null);
-  const contractTextRef = useRef<HTMLDivElement>(null);
+  const [sortBy, setSortBy] = useState<"default" | "risk" | "clause">("default");
+  const [mobileView, setMobileView] = useState<"pdf" | "analysis">("analysis"); // Mobile view switcher
+  const [isMobile, setIsMobile] = useState(false); // For SSR-safe mobile detection
 
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
@@ -615,6 +618,14 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
 
     loadContract();
   }, [id, router]);
+
+  // Mobile detection for SSR compatibility
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   async function loadContract() {
     try {
@@ -628,20 +639,22 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
     }
   }
 
-  const handleTextSelection = useCallback(() => {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
+  const handleAskAboutSelection = () => {
+    if (selectedText) {
+      setChatInitialQuestion(`"${selectedText.substring(0, 200)}${selectedText.length > 200 ? '...' : ''}" - 이 조항은 무슨 의미이고, 위험한가요?`);
+      setShowChat(true);
       setSelectedText(null);
       setTooltipPosition(null);
-      return;
     }
+  };
+
+  // 오른쪽 패널 텍스트 선택 핸들러
+  const handleRightPanelTextSelect = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
 
     const text = selection.toString().trim();
-    if (text.length < 10) {
-      setSelectedText(null);
-      setTooltipPosition(null);
-      return;
-    }
+    if (text.length < 10) return;
 
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
@@ -653,153 +666,64 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
     });
   }, []);
 
-  useEffect(() => {
-    document.addEventListener("mouseup", handleTextSelection);
-    return () => document.removeEventListener("mouseup", handleTextSelection);
-  }, [handleTextSelection]);
+  // 위험 조항 정렬 함수
+  const sortRiskClauses = useCallback((clauses: NormalizedClause[]) => {
+    if (sortBy === "default") return clauses;
 
-  const handleAskAboutSelection = () => {
-    if (selectedText) {
-      setChatInitialQuestion(`"${selectedText.substring(0, 200)}${selectedText.length > 200 ? '...' : ''}" - 이 조항은 무슨 의미이고, 위험한가요?`);
-      setShowChat(true);
-      setSelectedText(null);
-      setTooltipPosition(null);
-    }
-  };
-
-  // Handle highlighting a risk clause in the contract text
-  const handleHighlightClause = useCallback((clause: NormalizedClause) => {
-    setHighlightedClause(clause);
-
-    // Scroll to the highlighted text after a short delay for DOM update
-    setTimeout(() => {
-      const highlightedElement = document.querySelector('[data-highlighted="true"]');
-      if (highlightedElement) {
-        highlightedElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
+    return [...clauses].sort((a, b) => {
+      if (sortBy === "risk") {
+        // 위험도순: High > Medium > Low
+        const riskOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+        const aRisk = riskOrder[a.level.toLowerCase()] ?? 3;
+        const bRisk = riskOrder[b.level.toLowerCase()] ?? 3;
+        return aRisk - bRisk;
       }
-    }, 100);
-  }, []);
-
-  // Render contract text with highlighting
-  const renderContractTextWithHighlight = useCallback(() => {
-    if (!contract?.extracted_text) return null;
-
-    const text = contract.extracted_text;
-
-    // If no highlighted clause, return plain text
-    if (!highlightedClause) {
-      return <span>{text}</span>;
-    }
-
-    // Use original_text from API for exact matching
-    const originalText = highlightedClause.originalText || "";
-
-    if (!originalText || originalText.length < 5) {
-      return <span>{text}</span>;
-    }
-
-    // Normalize function: remove extra whitespace for flexible matching
-    const normalize = (str: string) => str.replace(/\s+/g, ' ').trim();
-
-    // Try exact match first
-    let matchStart = text.indexOf(originalText);
-    let matchEnd = matchStart + originalText.length;
-
-    // If not found, try normalized matching
-    if (matchStart === -1) {
-      const normalizedOriginal = normalize(originalText);
-      const normalizedText = normalize(text);
-
-      const normalizedMatchStart = normalizedText.indexOf(normalizedOriginal);
-
-      if (normalizedMatchStart !== -1) {
-        // Map back to original text positions
-        // Find the corresponding position in original text
-        let origPos = 0;
-        let normPos = 0;
-
-        while (normPos < normalizedMatchStart && origPos < text.length) {
-          if (/\s/.test(text[origPos])) {
-            // Skip extra whitespace in original
-            while (origPos < text.length && /\s/.test(text[origPos])) origPos++;
-            normPos++; // One space in normalized
-          } else {
-            origPos++;
-            normPos++;
-          }
+      if (sortBy === "clause") {
+        // 조항 번호순
+        const aNum = a.clauseNumber || "zzz";
+        const bNum = b.clauseNumber || "zzz";
+        // 숫자 부분 추출해서 비교
+        const aMatch = aNum.match(/^(\d+)/);
+        const bMatch = bNum.match(/^(\d+)/);
+        if (aMatch && bMatch) {
+          return parseInt(aMatch[1]) - parseInt(bMatch[1]);
         }
-        matchStart = origPos;
-
-        // Find end position
-        let matchLength = 0;
-        while (matchLength < normalizedOriginal.length && origPos < text.length) {
-          if (/\s/.test(text[origPos])) {
-            while (origPos < text.length && /\s/.test(text[origPos])) origPos++;
-            matchLength++; // One space
-          } else {
-            origPos++;
-            matchLength++;
-          }
-        }
-        matchEnd = origPos;
+        return aNum.localeCompare(bNum);
       }
-    }
+      return 0;
+    });
+  }, [sortBy]);
 
-    // Still not found - try partial match with first 50 chars
-    if (matchStart === -1 && originalText.length > 50) {
-      const partialSearch = originalText.substring(0, 50);
-      matchStart = text.indexOf(partialSearch);
-      if (matchStart !== -1) {
-        // Extend to end of line or paragraph
-        let lineEnd = text.indexOf('\n', matchStart + partialSearch.length);
-        matchEnd = lineEnd === -1 ? Math.min(matchStart + originalText.length, text.length) : lineEnd;
-      }
-    }
+  // Chat panel resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
 
-    // If still no match, return plain text
-    if (matchStart === -1) {
-      return <span>{text}</span>;
-    }
+    const startX = e.clientX;
+    const startWidth = chatWidth;
 
-    // Render with refined, professional highlighting
-    const beforeHighlight = text.substring(0, matchStart);
-    const highlighted = text.substring(matchStart, matchEnd);
-    const afterHighlight = text.substring(matchEnd);
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = startX - e.clientX;
+      const newWidth = Math.min(Math.max(startWidth + delta, 320), 640); // Min 320px, Max 640px
+      setChatWidth(newWidth);
+    };
 
-    // Determine severity-based highlight style
-    const level = highlightedClause.level.toLowerCase();
-    const highlightStyles = level === 'high'
-      ? 'bg-red-50 border-l-4 border-red-400 pl-3 py-1 -ml-3'
-      : level === 'medium'
-        ? 'bg-amber-50 border-l-4 border-amber-400 pl-3 py-1 -ml-3'
-        : 'bg-blue-50 border-l-4 border-blue-400 pl-3 py-1 -ml-3';
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
 
-    return (
-      <>
-        <span>{beforeHighlight}</span>
-        <span
-          data-highlighted="true"
-          className={cn(
-            "inline-block rounded-r transition-all duration-300",
-            highlightStyles
-          )}
-        >
-          {highlighted}
-        </span>
-        <span>{afterHighlight}</span>
-      </>
-    );
-  }, [contract?.extracted_text, highlightedClause]);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [chatWidth]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-b from-gray-50 to-white">
         <div className="flex flex-col items-center gap-3 animate-fadeIn">
           <IconLoading size={32} className="text-gray-400" />
-          <p className="text-sm text-gray-500">분석 결과를 불러오는 중...</p>
+          <p className="text-sm text-gray-500 tracking-tight">분석 결과를 불러오는 중...</p>
         </div>
       </div>
     );
@@ -807,20 +731,20 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
 
   if (error || !contract) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50/50 to-white">
+      <div className="min-h-[100dvh] bg-gradient-to-b from-gray-50/50 to-white">
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/80 sticky top-0 z-10">
-          <div className="px-5 h-14 flex items-center">
-            <Link href="/" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          <div className="px-4 sm:px-5 h-14 flex items-center">
+            <Link href="/" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors min-h-[44px]">
               <IconArrowLeft size={16} />
-              돌아가기
+              <span className="tracking-tight">돌아가기</span>
             </Link>
           </div>
         </header>
-        <main className="px-8 py-16 text-center animate-fadeIn">
+        <main className="px-4 sm:px-8 py-12 sm:py-16 text-center animate-fadeIn">
           <div className="inline-flex items-center justify-center w-14 h-14 bg-red-100 rounded-2xl mb-4">
             <IconDanger size={28} className="text-red-500" />
           </div>
-          <p className="text-red-600 font-medium">{error || "계약서를 찾을 수 없습니다"}</p>
+          <p className="text-red-600 font-medium tracking-tight">{error || "계약서를 찾을 수 없습니다"}</p>
         </main>
       </div>
     );
@@ -831,87 +755,97 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
   const summary = analysis?.analysis_summary || analysis?.summary;
 
   return (
-    <div className="min-h-screen bg-gray-50/30 flex">
+    <div className={cn("min-h-[100dvh] bg-gray-50/30 flex flex-col md:flex-row", isResizing && "select-none cursor-ew-resize")}>
       {/* Main Content */}
-      <div className={cn("flex-1 flex flex-col transition-all duration-300", showChat && "mr-96")}>
+      <div
+        className="flex-1 flex flex-col transition-all duration-300"
+        style={{ marginRight: showChat && !isMobile ? chatWidth : 0 }}
+      >
         <header className="bg-white/90 backdrop-blur-sm border-b border-gray-200/80 sticky top-0 z-10">
-          <div className="px-5 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="px-3 sm:px-5 h-14 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Link
                 href="/"
-                className="p-2 -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                className="p-2.5 -ml-1 sm:-ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200 flex-shrink-0"
               >
                 <IconArrowLeft size={18} />
               </Link>
-              <div>
-                <h1 className="text-sm font-semibold text-gray-900 truncate max-w-md">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm font-semibold text-gray-900 truncate tracking-tight">
                   {contract.title}
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {analysis?.risk_level && <RiskLevelBadge level={analysis.risk_level} />}
               <button
                 onClick={() => setShowChat(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 hover:shadow transition-all duration-200"
+                className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 hover:shadow transition-all duration-200 min-h-[44px]"
               >
                 <IconChat size={16} />
-                AI 질문
+                <span className="hidden xs:inline tracking-tight">AI 질문</span>
               </button>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 flex animate-fadeIn">
-          {/* Left Panel - PDF/Text */}
-          <div className="w-1/2 border-r border-gray-200/80 flex flex-col bg-white">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">원본 문서</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPdfScale((s) => Math.max(0.5, s - 0.1))}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                >
-                  <IconZoomOut size={16} />
-                </button>
-                <span className="text-xs font-medium text-gray-500 w-12 text-center">
-                  {Math.round(pdfScale * 100)}%
-                </span>
-                <button
-                  onClick={() => setPdfScale((s) => Math.min(2, s + 0.1))}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                >
-                  <IconZoomIn size={16} />
-                </button>
-                <a
-                  href={contract.file_url.startsWith("http") ? contract.file_url : `http://localhost:8000${contract.file_url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                >
-                  <IconDownload size={16} />
-                </a>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto p-5 bg-gray-50/50" ref={contractTextRef}>
-              {contract.extracted_text ? (
-                <div
-                  className="bg-white p-6 rounded-xl border border-gray-200 shadow-soft text-sm leading-relaxed whitespace-pre-wrap"
-                  style={{ transform: `scale(${pdfScale})`, transformOrigin: "top left" }}
-                >
-                  {renderContractTextWithHighlight()}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <p>추출된 텍스트가 없습니다</p>
-                </div>
-              )}
-            </div>
+        {/* Mobile View Switcher */}
+        <div className="md:hidden flex border-b border-gray-200 bg-white">
+          <button
+            onClick={() => setMobileView("pdf")}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium transition-all duration-200 relative tracking-tight",
+              mobileView === "pdf" ? "text-gray-900" : "text-gray-500"
+            )}
+          >
+            원본 문서
+            {mobileView === "pdf" && (
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-gray-900 rounded-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setMobileView("analysis")}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium transition-all duration-200 relative tracking-tight",
+              mobileView === "analysis" ? "text-gray-900" : "text-gray-500"
+            )}
+          >
+            분석 결과
+            {mobileView === "analysis" && (
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-gray-900 rounded-full" />
+            )}
+          </button>
+        </div>
+
+        <div className="flex-1 flex animate-fadeIn overflow-hidden">
+          {/* Left Panel - PDF Viewer (Desktop: always visible, Mobile: conditional) */}
+          <div className={cn(
+            "flex-col bg-white",
+            // Desktop: 50% width
+            "md:flex md:w-1/2 md:border-r md:border-gray-200/80",
+            // Mobile: full width or hidden
+            mobileView === "pdf" ? "flex w-full" : "hidden"
+          )}>
+            <PDFViewer
+              fileUrl={contract.file_url}
+              extractedText={contract.extracted_text}
+              onTextSelect={(text, position) => {
+                setSelectedText(text);
+                setTooltipPosition(position);
+              }}
+              className="flex-1"
+            />
           </div>
 
-          {/* Right Panel - Analysis */}
-          <div className="w-1/2 flex flex-col bg-white">
-            <div className="flex border-b border-gray-200 px-2">
+          {/* Right Panel - Analysis (Desktop: always visible, Mobile: conditional) */}
+          <div className={cn(
+            "flex-col bg-white",
+            // Desktop: 50% width
+            "md:flex md:w-1/2",
+            // Mobile: full width or hidden
+            mobileView === "analysis" ? "flex w-full" : "hidden"
+          )}>
+            <div className="flex border-b border-gray-200 px-1 sm:px-2 overflow-x-auto scrollbar-hide">
               {[
                 { key: "overview", label: "개요" },
                 { key: "clauses", label: `위험 조항 (${riskClauses.length})` },
@@ -921,7 +855,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as typeof activeTab)}
                   className={cn(
-                    "flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative",
+                    "flex-1 px-3 sm:px-4 py-3 text-sm font-medium transition-all duration-200 relative whitespace-nowrap tracking-tight",
                     activeTab === tab.key
                       ? "text-gray-900"
                       : "text-gray-500 hover:text-gray-700"
@@ -935,7 +869,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
               ))}
             </div>
 
-            <div className="flex-1 overflow-auto p-5">
+            <div className="flex-1 overflow-auto p-3 sm:p-5" onMouseUp={handleRightPanelTextSelect}>
               {activeTab === "overview" && (
                 <div className="space-y-5 animate-fadeIn">
                   {summary && (
@@ -945,20 +879,20 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="card p-4 text-center">
-                      <p className="text-xs font-medium text-gray-500 mb-1">위험도</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="card p-3 sm:p-4 text-center">
+                      <p className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1 tracking-tight">위험도</p>
+                      <p className="text-base sm:text-lg font-semibold text-gray-900">
                         {analysis?.risk_level || "N/A"}
                       </p>
                     </div>
-                    <div className="card p-4 text-center">
-                      <p className="text-xs font-medium text-gray-500 mb-1">위험 조항</p>
-                      <p className="text-lg font-semibold text-gray-900">{riskClauses.length}</p>
+                    <div className="card p-3 sm:p-4 text-center">
+                      <p className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1 tracking-tight">위험 조항</p>
+                      <p className="text-base sm:text-lg font-semibold text-gray-900">{riskClauses.length}</p>
                     </div>
-                    <div className="card p-4 text-center">
-                      <p className="text-xs font-medium text-gray-500 mb-1">고위험</p>
-                      <p className="text-lg font-semibold text-red-600">
+                    <div className="card p-3 sm:p-4 text-center">
+                      <p className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1 tracking-tight">고위험</p>
+                      <p className="text-base sm:text-lg font-semibold text-red-600">
                         {riskClauses.filter((c: NormalizedClause) => c.level.toLowerCase() === "high").length}
                       </p>
                     </div>
@@ -973,8 +907,6 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
                             key={i}
                             clause={clause}
                             index={i}
-                            isHighlighted={highlightedClause === clause}
-                            onHighlight={handleHighlightClause}
                           />
                         ))}
                         {riskClauses.length > 3 && (
@@ -1061,15 +993,40 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
                       <p className="text-xs text-gray-400 mt-1">이 계약서는 안전한 것으로 보입니다</p>
                     </div>
                   ) : (
-                    riskClauses.map((clause, i) => (
-                      <RiskClauseItem
-                        key={i}
-                        clause={clause}
-                        index={i}
-                        isHighlighted={highlightedClause === clause}
-                        onHighlight={handleHighlightClause}
-                      />
-                    ))
+                    <>
+                      {/* 정렬 옵션 */}
+                      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+                        <span className="text-[11px] text-gray-400 uppercase tracking-wider">정렬</span>
+                        <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-full p-0.5">
+                          {[
+                            { key: "default", label: "기본" },
+                            { key: "risk", label: "위험도" },
+                            { key: "clause", label: "조항" },
+                          ].map((option) => (
+                            <button
+                              key={option.key}
+                              onClick={() => setSortBy(option.key as typeof sortBy)}
+                              className={cn(
+                                "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
+                                sortBy === option.key
+                                  ? "bg-white text-gray-900 shadow-sm"
+                                  : "text-gray-500 hover:text-gray-700"
+                              )}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* 정렬된 위험 조항 목록 */}
+                      {sortRiskClauses(riskClauses).map((clause, i) => (
+                        <RiskClauseItem
+                          key={i}
+                          clause={clause}
+                          index={i}
+                        />
+                      ))}
+                    </>
                   )}
                 </div>
               )}
@@ -1086,18 +1043,53 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
 
       {/* Chat Panel */}
       {showChat && (
-        <div className="fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-strong z-40">
-          <ChatPanel
-            contractId={parseInt(id)}
-            initialQuestion={chatInitialQuestion}
-            messages={chatMessages}
-            setMessages={setChatMessages}
-            onClose={() => {
-              setShowChat(false);
-              setChatInitialQuestion(undefined);
-            }}
-          />
-        </div>
+        <>
+          {/* Mobile: Full screen overlay */}
+          <div className="md:hidden fixed inset-0 bg-white z-50 animate-slideInUp">
+            <ChatPanel
+              contractId={parseInt(id)}
+              initialQuestion={chatInitialQuestion}
+              messages={chatMessages}
+              setMessages={setChatMessages}
+              onClose={() => {
+                setShowChat(false);
+                setChatInitialQuestion(undefined);
+              }}
+            />
+          </div>
+
+          {/* Desktop: Side panel */}
+          <div
+            className="hidden md:block fixed right-0 top-0 bottom-0 bg-white border-l border-gray-200 shadow-strong z-40"
+            style={{ width: chatWidth }}
+          >
+            {/* Resize Handle */}
+            <div
+              onMouseDown={handleResizeStart}
+              className={cn(
+                "absolute -left-1 top-0 bottom-0 w-2 cursor-ew-resize group z-10",
+                "flex items-center justify-center"
+              )}
+            >
+              {/* Subtle line indicator */}
+              <div className={cn(
+                "w-0.5 h-8 rounded-full transition-all duration-200",
+                "bg-gray-200 group-hover:bg-gray-400 group-hover:h-12",
+                isResizing && "bg-blue-500 h-16"
+              )} />
+            </div>
+            <ChatPanel
+              contractId={parseInt(id)}
+              initialQuestion={chatInitialQuestion}
+              messages={chatMessages}
+              setMessages={setChatMessages}
+              onClose={() => {
+                setShowChat(false);
+                setChatInitialQuestion(undefined);
+              }}
+            />
+          </div>
+        </>
       )}
 
       {/* Text Selection Tooltip */}
