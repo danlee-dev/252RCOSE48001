@@ -125,36 +125,39 @@ async def upload_contract(
         "status": new_contract.status
     }
 
-@router.get("/", response_model=List[ContractResponse], summary="내 계약서 목록 조회")
+@router.get("/", response_model=List[ContractResponse], summary="내 계약서 목록 조회 (검색 지원)")
 async def read_contracts(
     skip: int = 0, 
     limit: int = 10, 
+    search: Optional[str] = Query(None, description="계약서 제목 검색어"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """
     **[보호됨]** 현재 로그인한 사용자가 업로드한 모든 계약서의 목록을 조회합니다. 
     결과는 페이지네이션을 지원하며, **업로드 최신순**으로 반환됩니다.
+    `search` 파라미터를 통해 제목으로 필터링할 수 있습니다.
     
     - **요청 파라미터 (Query):**
         - `skip`: 건너뛸 항목 수 (페이지네이션 오프셋, 기본값 0).
         - `limit`: 한 번에 가져올 최대 항목 수 (페이지 크기, 기본값 10).
+        - `search`: (선택) 계약서 제목 검색 키워드.
     - **응답 (Output):**
         - `200 OK`: 계약서 ID, 제목, 상태, 위험도 레벨 등 핵심 정보 목록.
-    - **주요 오류 코드:**
-        - `401 Unauthorized`: 유효하지 않은 토큰.
     """
-    # 최신 계약서가 목록 맨 앞에 오도록 created_at을 기준으로 내림차순(DESC) 정렬합니다.
-    stmt = (
-        select(Contract)
-        .where(Contract.user_id == current_user.id)
-        .order_by(desc(Contract.created_at))
-        .offset(skip)
-        .limit(limit)
-    )
+    
+    # 기본 쿼리: 현재 사용자의 계약서만 조회
+    query = select(Contract).where(Contract.user_id == current_user.id)
+    
+    # 검색어가 있는 경우 필터링 조건 추가 (대소문자 구분 없이 부분 일치)
+    if search:
+        query = query.where(Contract.title.ilike(f"%{search}%"))
+        
+    # 정렬 및 페이지네이션 적용
+    query = query.order_by(desc(Contract.created_at)).offset(skip).limit(limit)
     
     # DB에서 데이터 실행
-    result = await db.execute(stmt)
+    result = await db.execute(query)
     contracts = result.scalars().all() 
     
     return contracts
