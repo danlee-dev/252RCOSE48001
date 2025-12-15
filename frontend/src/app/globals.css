@@ -490,27 +490,27 @@ textarea::placeholder {
 }
 
 .badge-danger {
-  background: hsl(0 84% 95%);
-  color: hsl(0 70% 45%);
-  border: 1px solid hsl(0 70% 90%);
+  background: #fdedec;
+  color: #b54a45;
+  border: 1px solid #f5c6c4;
 }
 
 .badge-warning {
-  background: hsl(38 92% 95%);
-  color: hsl(30 80% 40%);
-  border: 1px solid hsl(38 80% 85%);
+  background: #fef7e0;
+  color: #9a7b2d;
+  border: 1px solid #f5e6b8;
 }
 
 .badge-success {
-  background: hsl(142 76% 95%);
-  color: hsl(142 60% 30%);
-  border: 1px solid hsl(142 50% 85%);
+  background: #e8f5ec;
+  color: #3d7a4a;
+  border: 1px solid #c8e6cf;
 }
 
 .badge-neutral {
-  background: hsl(0 0% 96%);
-  color: hsl(0 0% 40%);
-  border: 1px solid hsl(0 0% 90%);
+  background: #e8f0ea;
+  color: #3d5a47;
+  border: 1px solid #c8e6cf;
 }
 
 /* 드래그 영역 */
@@ -2107,6 +2107,20 @@ textarea::placeholder {
 .stagger-children > *:nth-child(5) { animation-delay: 0.5s; }
 .stagger-children > *:nth-child(6) { animation-delay: 0.6s; }
 
+/* Slide in from left animation */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s ease-out;
+}
+
 /* ============================
    Chat Panel Animations
    ============================ */
@@ -2289,4 +2303,53 @@ textarea::placeholder {
 
 .animate-swirl-core {
   animation: swirl-core 10s ease-in-out infinite;
+}
+
+/* AI Sphere Interactive Animation - Perplexity Style */
+@keyframes ai-sphere-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ai-sphere-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ai-sphere-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 4px 12px rgba(61, 90, 71, 0.2)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+  50% {
+    opacity: 0.9;
+    filter: drop-shadow(0 8px 20px rgba(61, 90, 71, 0.35)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+  }
+}
+
+.ai-sphere-container {
+  animation: ai-sphere-breathe 3s ease-in-out infinite;
+}
+
+.animate-ai-sphere {
+  animation: ai-sphere-rotate 20s linear infinite, ai-sphere-pulse 3s ease-in-out infinite;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.ai-sphere-container:hover {
+  animation-play-state: paused;
+}
+
+.ai-sphere-container:hover .animate-ai-sphere {
+  animation-play-state: paused;
+  transform: scale(1.05);
+  filter: drop-shadow(0 12px 28px rgba(61, 90, 71, 0.3)) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
 }

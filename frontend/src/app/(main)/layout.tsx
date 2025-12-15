@@ -469,6 +469,7 @@ export default function MainLayout({
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
@@ -524,7 +525,7 @@ export default function MainLayout({
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f2f1ee]">
+      <div className="min-h-screen flex items-center justify-center bg-[#fafafa]">
         <div className="flex flex-col items-center gap-3 animate-fadeIn">
           <IconLoading size={32} className="text-gray-400" />
           <p className="text-sm text-gray-500">불러오는 중...</p>
@@ -534,7 +535,7 @@ export default function MainLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f1ee]">
+    <div className="min-h-screen bg-[#fafafa]">
       {/* Floating Island Sidebar */}
       <div
         className="hidden lg:block fixed left-4 top-1/2 -translate-y-1/2 z-30"
@@ -543,7 +544,7 @@ export default function MainLayout({
       >
         <div
           className={cn(
-            "relative bg-white/70 backdrop-blur-2xl border border-white/50 shadow-2xl overflow-hidden transition-all duration-500 ease-out",
+            "relative bg-[#e8f0ea]/90 backdrop-blur-2xl border border-[#c8e6cf]/50 shadow-2xl overflow-hidden transition-all duration-500 ease-out",
             sidebarExpanded ? "w-56 rounded-3xl" : "w-16 rounded-2xl"
           )}
           style={{
@@ -686,16 +687,120 @@ export default function MainLayout({
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-20 px-4 sm:px-6 py-4 lg:hidden">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Logo size={32} color="#111827" />
-            <span className="text-base font-semibold text-gray-900 tracking-tight">DocScanner AI</span>
+          <div className="flex items-center gap-3">
+            <Logo size={36} color="#111827" />
+            <span className="text-lg font-semibold text-gray-900 tracking-tight">DocScanner AI</span>
           </div>
+          {/* Hamburger Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm hover:bg-white transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
         </div>
       </header>
 
+      {/* Mobile Slide-in Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          {/* Sidebar */}
+          <div className="absolute left-0 top-0 bottom-0 w-72 bg-[#e8f0ea] shadow-2xl animate-slideInLeft">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[#c8e6cf]/50">
+              <div className="flex items-center gap-2.5">
+                <Logo size={28} color="#111827" />
+                <span className="text-sm font-semibold text-gray-900 tracking-tight">DocScanner</span>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/50 transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Navigation */}
+            <nav className="p-3 space-y-1">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 h-12 px-3 rounded-xl transition-all duration-200",
+                      isActive
+                        ? "bg-white/70 text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                    )}
+                  >
+                    <Icon size={20} />
+                    <span className="text-sm font-medium tracking-tight">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Divider */}
+            <div className="mx-4 my-2 border-t border-[#c8e6cf]/50" />
+
+            {/* Recent Revisions Preview */}
+            <div className="px-4 py-2">
+              <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-2">최근 수정</p>
+              <div className="space-y-2">
+                {recentRevisions.map((rev) => (
+                  <div key={rev.id} className="p-2.5 bg-white/50 rounded-xl">
+                    <p className="text-xs font-medium text-gray-800 truncate">{rev.title}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{rev.change}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{rev.time}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* User Section */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#c8e6cf]/50 bg-white/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white text-sm font-medium">
+                  {user?.username?.[0]?.toUpperCase() || "U"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate tracking-tight">
+                    {user?.username || "User"}
+                  </p>
+                  <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-colors"
+                  title="로그아웃"
+                >
+                  <IconLogout size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Dock */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
-        <div className="flex items-center gap-1 px-2 py-2 bg-white/80 backdrop-blur-xl border border-gray-200/50 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-1 px-2 py-2 bg-[#e8f0ea]/90 backdrop-blur-xl border border-[#c8e6cf]/50 rounded-2xl shadow-lg">
           <Link
             href="/scan"
             className={cn(
@@ -734,7 +839,7 @@ export default function MainLayout({
 
       {/* Main Content */}
       <main className={cn(
-        "max-w-5xl mx-auto px-4 sm:px-6 pt-20 lg:pt-16 pb-32 lg:pb-6 transition-all duration-500 ease-out",
+        "max-w-6xl mx-auto px-4 sm:px-6 pt-20 lg:pt-16 pb-32 lg:pb-6 transition-all duration-500 ease-out",
         sidebarExpanded && "lg:pl-56"
       )}>
         {children}

@@ -30,23 +30,23 @@ function getRiskBadge(riskLevel: string | null) {
   const level = riskLevel.toLowerCase();
   if (level === "high" || level === "danger") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-600 border border-red-100">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#fdedec] text-[#b54a45] border border-[#f5c6c4]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#c94b45]" />
         High
       </span>
     );
   }
   if (level === "medium" || level === "warning") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-600 border border-amber-100">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#fef7e0] text-[#9a7b2d] border border-[#f5e6b8]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#d4a84d]" />
         Medium
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-600 border border-green-100">
-      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#e8f5ec] text-[#3d7a4a] border border-[#c8e6cf]">
+      <span className="w-1.5 h-1.5 rounded-full bg-[#4a9a5b]" />
       Low
     </span>
   );
@@ -56,27 +56,27 @@ function getStatusBadge(status: string) {
   switch (status) {
     case "COMPLETED":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-600 border border-green-100">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#e8f5ec] text-[#3d7a4a] border border-[#c8e6cf]">
           <IconCheck size={10} />
           완료
         </span>
       );
     case "PROCESSING":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#e8f0ea] text-[#3d5a47] border border-[#c8e6cf]">
           <IconLoading size={10} />
           분석중
         </span>
       );
     case "PENDING":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#fef7e0] text-[#9a7b2d] border border-[#f5e6b8]">
           대기중
         </span>
       );
     case "FAILED":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-600 border border-red-100">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#fdedec] text-[#b54a45] border border-[#f5c6c4]">
           <IconDanger size={10} />
           실패
         </span>
@@ -258,7 +258,7 @@ export default function DashboardPage() {
       {/* Welcome Section */}
       <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-[#3d5a47] tracking-tight">
             {user?.username ? `${user.username}님, 안녕하세요` : "안녕하세요"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -278,7 +278,7 @@ export default function DashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setShowSearchDropdown(true)}
-                className="w-48 sm:w-72 h-12 pl-5 pr-14 text-sm bg-white border border-gray-200 rounded-full outline-none focus:border-gray-400 transition-colors"
+                className="w-56 sm:w-80 h-12 pl-5 pr-14 text-sm bg-white border border-gray-200 rounded-full outline-none focus:border-gray-400 transition-colors"
               />
               <button
                 onClick={() => {
@@ -320,7 +320,7 @@ export default function DashboardPage() {
                           className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-[8px] bg-gray-100 flex items-center justify-center text-gray-500 flex-shrink-0">
+                            <div className="w-8 h-8 rounded-[8px] bg-[#e8f0ea] flex items-center justify-center text-[#3d5a47] flex-shrink-0">
                               <IconDocument size={14} />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -330,7 +330,7 @@ export default function DashboardPage() {
                               </p>
                             </div>
                             {contract.status === "COMPLETED" && (
-                              <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-[4px]">완료</span>
+                              <span className="text-[10px] text-[#3d7a4a] bg-[#e8f5ec] px-1.5 py-0.5 rounded-[4px]">완료</span>
                             )}
                           </div>
                         </button>
@@ -440,28 +440,28 @@ export default function DashboardPage() {
         <div className="card-apple p-4 sm:p-5">
           <div className="flex items-start justify-between mb-2">
             <div>
-              <p className="text-xs font-medium text-green-600 mb-1">분석 완료</p>
+              <p className="text-xs font-medium text-[#3d7a4a] mb-1">분석 완료</p>
               <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                 {stats.completed}
               </p>
             </div>
-            <Sparkline data={completedSparkline} width={56} height={28} color="#22c55e" />
+            <Sparkline data={completedSparkline} width={56} height={28} color="#4a9a5b" />
           </div>
-          <p className="text-[11px] text-green-600/70">+{Math.max(0, stats.completed - 2)} 이번 주</p>
+          <p className="text-[11px] text-[#3d7a4a]/70">+{Math.max(0, stats.completed - 2)} 이번 주</p>
         </div>
 
         {/* High Risk - White card */}
         <div className="card-apple p-4 sm:p-5">
           <div className="flex items-start justify-between mb-2">
             <div>
-              <p className="text-xs font-medium text-red-500 mb-1">주의 필요</p>
+              <p className="text-xs font-medium text-[#b54a45] mb-1">주의 필요</p>
               <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                 {stats.highRisk}
               </p>
             </div>
-            <Sparkline data={riskSparkline} width={56} height={28} color="#ef4444" />
+            <Sparkline data={riskSparkline} width={56} height={28} color="#c94b45" />
           </div>
-          <p className="text-[11px] text-red-500/70">고위험 계약서</p>
+          <p className="text-[11px] text-[#b54a45]/70">고위험 계약서</p>
         </div>
 
         {/* Processing - Accent colored card (dark green) */}
@@ -514,9 +514,9 @@ export default function DashboardPage() {
               <div className="flex items-center justify-center gap-5">
                 <DonutChart
                   segments={[
-                    { value: stats.lowRisk || 1, color: "#22c55e", label: "Low" },
-                    { value: stats.mediumRisk, color: "#f59e0b", label: "Medium" },
-                    { value: stats.highRisk, color: "#ef4444", label: "High" },
+                    { value: stats.lowRisk || 1, color: "#4a9a5b", label: "Low" },
+                    { value: stats.mediumRisk, color: "#d4a84d", label: "Medium" },
+                    { value: stats.highRisk, color: "#c94b45", label: "High" },
                   ]}
                   size={100}
                   strokeWidth={12}
@@ -525,17 +525,17 @@ export default function DashboardPage() {
                 />
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#4a9a5b]" />
                     <span className="text-xs text-gray-600">Low</span>
                     <span className="text-xs font-semibold text-gray-900 ml-auto">{stats.lowRisk}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#d4a84d]" />
                     <span className="text-xs text-gray-600">Medium</span>
                     <span className="text-xs font-semibold text-gray-900 ml-auto">{stats.mediumRisk}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#c94b45]" />
                     <span className="text-xs text-gray-600">High</span>
                     <span className="text-xs font-semibold text-gray-900 ml-auto">{stats.highRisk}</span>
                   </div>
@@ -561,8 +561,8 @@ export default function DashboardPage() {
 
             {recentContracts.length === 0 ? (
               <div className="p-8 text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl mb-3">
-                  <IconDocument size={24} className="text-gray-400" />
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-[#e8f0ea] rounded-xl mb-3">
+                  <IconDocument size={24} className="text-[#3d5a47]" />
                 </div>
                 <p className="text-sm text-gray-700 mb-1 font-medium tracking-tight">
                   아직 분석된 계약서가 없습니다
@@ -586,8 +586,8 @@ export default function DashboardPage() {
                       }
                     }}
                   >
-                    <div className="w-9 h-9 bg-gray-100 rounded-[10px] flex items-center justify-center flex-shrink-0">
-                      <IconDocument size={16} className="text-gray-500" />
+                    <div className="w-9 h-9 bg-[#e8f0ea] rounded-[10px] flex items-center justify-center flex-shrink-0">
+                      <IconDocument size={16} className="text-[#3d5a47]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate tracking-tight">
@@ -623,21 +623,21 @@ export default function DashboardPage() {
                 value={completionRate}
                 size={120}
                 strokeWidth={10}
-                color="#22c55e"
+                color="#4a9a5b"
                 showPercentage={true}
               />
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
               <div>
-                <p className="text-lg font-bold text-gray-900">{stats.completed}</p>
+                <p className="text-lg font-bold text-[#3d7a4a]">{stats.completed}</p>
                 <p className="text-[10px] text-gray-500">완료</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-blue-600">{stats.processing}</p>
+                <p className="text-lg font-bold text-[#3d5a47]">{stats.processing}</p>
                 <p className="text-[10px] text-gray-500">진행중</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-red-600">{stats.highRisk}</p>
+                <p className="text-lg font-bold text-[#c94b45]">{stats.highRisk}</p>
                 <p className="text-[10px] text-gray-500">위험</p>
               </div>
             </div>
@@ -651,59 +651,59 @@ export default function DashboardPage() {
             <div className="space-y-2.5">
               <Link
                 href="/scan"
-                className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-[#e8f0ea] hover:bg-[#dce8de] transition-colors group"
               >
-                <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 bg-[#3d5a47] rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <IconScan size={18} className="text-white" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 tracking-tight">빠른 스캔</p>
                   <p className="text-[11px] text-gray-500">카메라로 촬영</p>
                 </div>
-                <IconChevronRight size={16} className="text-gray-400" />
+                <IconChevronRight size={16} className="text-[#3d5a47]" />
               </Link>
 
               <Link
                 href="/checklist"
-                className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-[#e8f0ea] hover:bg-[#dce8de] transition-colors group"
               >
-                <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-sm shadow-green-200 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 bg-[#4a9a5b] rounded-xl flex items-center justify-center shadow-sm shadow-[#c8e6cf] group-hover:scale-105 transition-transform">
                   <IconChecklist size={18} className="text-white" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 tracking-tight">체크리스트</p>
                   <p className="text-[11px] text-gray-500">검토 가이드</p>
                 </div>
-                <IconChevronRight size={16} className="text-gray-400" />
+                <IconChevronRight size={16} className="text-[#3d5a47]" />
               </Link>
 
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent("openUploadSidebar"))}
-                className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group w-full text-left"
+                className="flex items-center gap-3 p-3 rounded-xl bg-[#e8f0ea] hover:bg-[#dce8de] transition-colors group w-full text-left"
               >
-                <div className="w-10 h-10 bg-gray-700 rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 bg-[#3d5a47]/80 rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <IconDocument size={18} className="text-white" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 tracking-tight">새 계약서 분석</p>
                   <p className="text-[11px] text-gray-500">파일 업로드</p>
                 </div>
-                <IconChevronRight size={16} className="text-gray-400" />
+                <IconChevronRight size={16} className="text-[#3d5a47]" />
               </button>
             </div>
           </div>
 
           {/* Safety Tip Card */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-[18px] p-5 border border-amber-100/50">
+          <div className="bg-[#fef7e0] rounded-[18px] p-5 border border-[#f5e6b8]">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-10 h-10 bg-[#f5e6b8] rounded-xl flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-[#9a7b2d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-amber-900 tracking-tight mb-1">계약서 검토 팁</p>
-                <p className="text-xs text-amber-700/80 leading-relaxed">
+                <p className="text-sm font-semibold text-[#7a6223] tracking-tight mb-1">계약서 검토 팁</p>
+                <p className="text-xs text-[#9a7b2d]/90 leading-relaxed">
                   계약 전 반드시 모든 조항을 꼼꼼히 읽고, 위약금 조항과 해지 조건을 확인하세요.
                 </p>
               </div>

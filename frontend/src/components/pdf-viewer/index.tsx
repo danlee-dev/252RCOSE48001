@@ -83,9 +83,9 @@ export function PDFViewer({
   }, [onTextSelect]);
 
   return (
-    <div className={cn("flex flex-col h-full bg-[#f2f1ee]", className)}>
+    <div className={cn("flex flex-col h-full bg-[#fafafa]", className)}>
       {/* Toolbar */}
-      <div className="bg-[#f2f1ee]">
+      <div className="bg-[#fafafa]">
         <div className="flex items-center justify-between px-4 sm:px-5 h-12">
           {/* Left: Title */}
           <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">원본 문서</p>
@@ -181,7 +181,7 @@ export function PDFViewer({
             showScrollIndicator ? "opacity-100" : "opacity-0"
           )}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-[#f2f1ee] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#fafafa] to-transparent" />
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
             <div className="w-6 h-6 rounded-full bg-white/90 shadow-sm border border-gray-200/60 flex items-center justify-center">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-gray-400">

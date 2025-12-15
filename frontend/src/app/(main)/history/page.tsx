@@ -191,16 +191,16 @@ export default function HistoryPage() {
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="card-apple p-4">
-          <p className="text-xs text-green-600 mb-1">완료</p>
-          <p className="text-2xl font-bold text-green-700">{stats.completed}</p>
+          <p className="text-xs text-[#3d7a4a] mb-1">완료</p>
+          <p className="text-2xl font-bold text-[#3d7a4a]">{stats.completed}</p>
         </div>
         <div className="card-apple p-4">
-          <p className="text-xs text-blue-600 mb-1">진행중</p>
-          <p className="text-2xl font-bold text-blue-700">{stats.processing}</p>
+          <p className="text-xs text-[#3d5a47] mb-1">진행중</p>
+          <p className="text-2xl font-bold text-[#3d5a47]">{stats.processing}</p>
         </div>
         <div className="card-apple p-4">
-          <p className="text-xs text-red-600 mb-1">실패</p>
-          <p className="text-2xl font-bold text-red-700">{stats.failed}</p>
+          <p className="text-xs text-[#b54a45] mb-1">실패</p>
+          <p className="text-2xl font-bold text-[#b54a45]">{stats.failed}</p>
         </div>
       </div>
 
@@ -240,15 +240,15 @@ export default function HistoryPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl animate-fadeIn">
+        <div className="mb-4 p-4 text-sm text-[#b54a45] bg-[#fdedec] border border-[#f5c6c4] rounded-xl animate-fadeIn">
           {error}
         </div>
       )}
 
       {filteredContracts.length === 0 ? (
         <div className="py-16 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-100 rounded-xl mb-4">
-            <IconDocument size={28} className="text-gray-400" />
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-[#e8f0ea] rounded-xl mb-4">
+            <IconDocument size={28} className="text-[#3d5a47]" />
           </div>
           {contracts.length === 0 ? (
             <>
