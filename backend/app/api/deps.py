@@ -42,13 +42,21 @@ except Exception as e:
 
 # Elasticsearch 클라이언트 초기화
 ES_URL = os.getenv("ES_URL")
+ES_API_KEY = os.getenv("ES_API_KEY")
 try:
     if ES_URL:
-        # 🔴 Elasticsearch 초기화 시에도 타임아웃 적용 (5초)
-        es_client = Elasticsearch(
-            ES_URL,
-            request_timeout=5.0 # 요청 타임아웃 5초 설정
-        )
+        # Cloud (with API key) or Local
+        if ES_API_KEY:
+            es_client = Elasticsearch(
+                ES_URL,
+                api_key=ES_API_KEY,
+                request_timeout=5.0
+            )
+        else:
+            es_client = Elasticsearch(
+                ES_URL,
+                request_timeout=5.0
+            )
         # 클라이언트가 실제로 연결 가능한지 핑 테스트
         if not es_client.ping():
              raise ConnectionError("ES ping failed after initialization.")
@@ -58,15 +66,31 @@ except Exception as e:
     print(f"❌ Elasticsearch Client initialization failed: {e}")
     es_client = None
 
-# Redis 클라이언트 초기화
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-redis_client = redis.Redis(
-    host=REDIS_HOST, 
-    port=REDIS_PORT, 
-    decode_responses=True, 
-    socket_timeout=3 # 🔴 Redis 소켓 타임아웃 3초 설정
-)
+# Redis 클라이언트 초기화 (Railway REDIS_URL 지원)
+REDIS_URL = os.getenv("REDIS_URL")
+try:
+    if REDIS_URL:
+        # Railway/Cloud 환경: URL에서 직접 연결
+        redis_client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_timeout=3
+        )
+    else:
+        # 로컬 환경: 개별 변수 사용
+        REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+        REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+        redis_client = redis.Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            decode_responses=True,
+            socket_timeout=3
+        )
+    # 연결 테스트
+    redis_client.ping()
+except Exception as e:
+    print(f"Warning: Redis connection failed: {e}")
+    redis_client = None
 
 
 # -------------------------------------------------------------------------

@@ -14,9 +14,14 @@ class ContractResponse(BaseModel):
 
 class ContractDetailResponse(ContractResponse):
     file_url: str
+    extracted_text: Optional[str] = Field(
+        None,
+        description="PDF에서 추출된 원본 텍스트",
+        example="표준근로계약서\n\n제1조 (계약기간)..."
+    )
     analysis_result: Optional[Dict[str, Any]] = Field(
-        None, 
-        description="Dify 분석 결과 JSON",
+        None,
+        description="AI 분석 결과 JSON",
         example={
             "summary": "이 계약서는...",
             "riskClauses": [{"text": "포괄임금...", "level": "High"}]

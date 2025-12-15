@@ -1,3 +1,10 @@
+"""
+Contract Analysis Tasks (Multi-Format Support)
+- PDF, HWP, DOCX, TXT, 이미지 파일 분석 지원
+- Celery 비동기 작업 처리
+- Advanced AI Pipeline 또는 Dify API 연동
+"""
+
 import os
 import sys
 import asyncio
@@ -8,27 +15,95 @@ from app.models.contract import Contract
 from app.core.celery_app import celery_app
 import requests
 
-# -------------------------------------------------------------------------
-# 🔴 [CRITICAL FIX] Worker 프로세스 내에서 app 모듈 경로를 찾도록 설정
-# -------------------------------------------------------------------------
+# Worker 프로세스 내에서 app 모듈 경로를 찾도록 설정
 from pathlib import Path
 backend_dir = Path(__file__).parent.parent.parent.resolve()
 if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir)) 
-# -------------------------------------------------------------------------
+    sys.path.insert(0, str(backend_dir))
 
-# 🔴 [추가] 전처리기 클래스 import
+# 전처리기 및 고급 AI 파이프라인 import
 from app.ai.preprocessor import ContractPreprocessor
+from app.ai.pipeline import AdvancedAIPipeline, PipelineConfig
+from app.ai.vision_parser import VisionParser
+from app.ai.document_parser import MultiFormatDocumentParser, DocumentType
+
+
+def get_file_extension(file_url: str) -> str:
+    """파일 URL에서 확장자 추출"""
+    return Path(file_url).suffix.lower()
+
+
+def is_image_file(extension: str) -> bool:
+    """이미지 파일 여부 확인"""
+    return extension in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tiff', '.tif'}
+
+
+def is_pdf_file(extension: str) -> bool:
+    """PDF 파일 여부 확인"""
+    return extension == '.pdf'
+
+
+def extract_text_from_file(file_path: str, extension: str) -> str:
+    """
+    파일 형식에 따른 텍스트 추출
+
+    Args:
+        file_path: 파일 경로
+        extension: 파일 확장자
+
+    Returns:
+        추출된 텍스트
+    """
+    parser = MultiFormatDocumentParser()
+
+    # 이미지 파일은 Vision API 직접 사용
+    if is_image_file(extension):
+        vision_parser = VisionParser()
+        result = vision_parser.parse_image(file_path, extract_tables=True)
+        return result.raw_text
+
+    # PDF는 pdfplumber + Vision OCR fallback
+    if is_pdf_file(extension):
+        processor = ContractPreprocessor()
+        text = processor.extract_text(file_path)
+
+        # 텍스트가 부족하면 Vision OCR 사용
+        if not text or len(text.strip()) < 100:
+            try:
+                vision_parser = VisionParser()
+                ocr_text = vision_parser.extract_text_from_pdf(file_path)
+                if len(ocr_text) > len(text or ""):
+                    return ocr_text
+            except Exception as e:
+                print(f"Vision OCR fallback failed: {e}")
+
+        return text
+
+    # 기타 문서 형식 (HWP, DOCX, TXT 등)
+    result = parser.parse(file_path)
+
+    if result.is_empty:
+        print(f"Warning: Empty or insufficient text from {extension} file")
+        # OCR fallback 시도
+        if result.warnings:
+            print(f"Parser warnings: {result.warnings}")
+
+    return result.text
+
 
 @celery_app.task(name="analyze_contract")
-def analyze_contract_task(contract_id: int):
+def analyze_contract_task(contract_id: int, use_advanced_pipeline: bool = True):
     """
-    Celery Task: 
-    1. PDF 전처리 (텍스트 추출 및 청킹)
-    2. Dify API 호출 (추출된 텍스트 전송)
+    Celery Task:
+    1. 멀티포맷 문서 파싱 (PDF, HWP, DOCX, TXT, 이미지)
+    2. Advanced AI Pipeline 또는 Dify API 호출
     3. 결과 파싱 및 DB 저장 (JSONB)
+
+    지원 파일 형식:
+    - 문서: PDF, HWP, HWPX, DOCX, DOC, TXT, RTF, MD
+    - 이미지: PNG, JPG, JPEG, GIF, WEBP, BMP, TIFF (Vision API OCR)
     """
-    
+
     async def run_analysis():
         async with AsyncSessionLocal() as db:
             stmt = select(Contract).where(Contract.id == contract_id)
@@ -40,74 +115,281 @@ def analyze_contract_task(contract_id: int):
                 return
 
             print(f"[{contract_id}] Processing START for {contract.title}...")
-            
+
             contract.status = "PROCESSING"
             await db.commit()
-            
-            try:
-                # -------------------------------------------------------
-                # 1. [전처리 단계] PDF -> 텍스트 추출
-                # -------------------------------------------------------
-                # DB에 저장된 file_url(/storage/...)을 로컬 절대 경로로 변환
-                relative_path = contract.file_url.lstrip("/")
-                pdf_path = backend_dir / relative_path
-                
-                processor = ContractPreprocessor()
-                
-                # (1) 텍스트 추출 (pdfplumber 사용)
-                full_text = processor.extract_text(str(pdf_path))
-                if not full_text:
-                    raise Exception("PDF 텍스트 추출 실패 (빈 내용)")
-                
-                # (2) 청킹 (로그용 또는 추후 검색용)
-                chunks = processor.chunk_text(full_text)
-                print(f"[{contract_id}] Extracted text length: {len(full_text)}, Chunks: {len(chunks)}")
 
-                # -------------------------------------------------------
-                # 2. [Dify 호출 단계] 추출된 텍스트 전송
-                # -------------------------------------------------------
-                DIFY_API_URL = os.getenv("DIFY_API_URL")
-                DIFY_API_KEY = os.getenv("DIFY_API_KEY")
-                
-                payload = {
-                    "inputs": {
-                        # 🔴 [핵심] 전처리된 텍스트를 Dify 변수에 주입
-                        "contract_text": full_text, 
-                        "file_url": contract.file_url # 참고용 원본 URL
-                    },
-                    "query": "이 계약서의 위험 조항을 분석해줘.", 
-                    "user": str(contract.user_id),
-                    "response_mode": "blocking"
-                }
-                
-                headers = {"Authorization": f"Bearer {DIFY_API_KEY}", "Content-Type": "application/json"}
-                
-                print(f"[{contract_id}] Calling Dify API...")
-                response = requests.post(DIFY_API_URL, headers=headers, json=payload, timeout=300)
-                response.raise_for_status()
-                
-                dify_response = response.json()
-                
-                # -------------------------------------------------------
-                # 3. [저장 단계] 결과 저장 (JSONB)
-                # -------------------------------------------------------
-                contract.status = "COMPLETED"
-                contract.analysis_result = dify_response # Dify 전체 응답 저장
-                
-                # 임시 위험도 설정 (나중에 Dify 응답 파싱 로직 추가 필요)
-                # 예: contract.risk_level = dify_response.get('data', {}).get('outputs', {}).get('risk_level', 'Unknown')
-                contract.risk_level = "Check" 
-                
+            try:
+                # 파일 경로 및 확장자 확인
+                relative_path = contract.file_url.lstrip("/")
+                file_path = backend_dir / relative_path
+                extension = get_file_extension(contract.file_url)
+
+                print(f"[{contract_id}] File type: {extension}")
+
+                # 텍스트 추출 (형식별 분기 처리)
+                full_text = extract_text_from_file(str(file_path), extension)
+
+                if not full_text or len(full_text.strip()) < 10:
+                    raise Exception(f"텍스트 추출 실패: 내용이 너무 적습니다 ({len(full_text) if full_text else 0}자)")
+
+                print(f"[{contract_id}] Extracted text length: {len(full_text)} characters")
+
+                # 청킹 (텍스트 분할)
+                processor = ContractPreprocessor()
+                chunks = processor.chunk_text(full_text)
+                print(f"[{contract_id}] Text chunks: {len(chunks)}")
+
+                # AI 분석 수행
+                if use_advanced_pipeline:
+                    # Advanced AI Pipeline 사용
+                    print(f"[{contract_id}] Using Advanced AI Pipeline...")
+
+                    config = PipelineConfig(
+                        enable_pii_masking=True,
+                        enable_hyde=True,
+                        enable_raptor=True,
+                        enable_crag=True,
+                        enable_constitutional_ai=True,
+                        enable_stress_test=True,
+                        enable_redlining=True,
+                        enable_judge=True,
+                        enable_reasoning_trace=True,
+                        enable_dspy=True
+                    )
+
+                    pipeline = AdvancedAIPipeline(config=config)
+                    pipeline_result = pipeline.analyze(
+                        contract_text=full_text,
+                        contract_id=str(contract_id),
+                        file_path=str(file_path)
+                    )
+
+                    # 결과 저장
+                    contract.status = "COMPLETED"
+                    contract.extracted_text = full_text
+                    contract.analysis_result = pipeline_result.to_dict()
+                    contract.risk_level = pipeline_result.risk_level
+
+                    print(f"[{contract_id}] Advanced Pipeline completed in {pipeline_result.processing_time:.2f}s")
+                    print(f"[{contract_id}] Risk: {pipeline_result.risk_level} ({pipeline_result.risk_score:.2%})")
+
+                else:
+                    # Legacy: Dify API 호출
+                    DIFY_API_URL = os.getenv("DIFY_API_URL")
+                    DIFY_API_KEY = os.getenv("DIFY_API_KEY")
+
+                    payload = {
+                        "inputs": {
+                            "contract_text": full_text,
+                            "file_url": contract.file_url
+                        },
+                        "query": "이 계약서의 위험 조항을 분석해줘.",
+                        "user": str(contract.user_id),
+                        "response_mode": "blocking"
+                    }
+
+                    headers = {"Authorization": f"Bearer {DIFY_API_KEY}", "Content-Type": "application/json"}
+
+                    print(f"[{contract_id}] Calling Dify API...")
+                    response = requests.post(DIFY_API_URL, headers=headers, json=payload, timeout=300)
+                    response.raise_for_status()
+
+                    dify_response = response.json()
+
+                    contract.status = "COMPLETED"
+                    contract.extracted_text = full_text
+                    contract.analysis_result = dify_response
+                    contract.risk_level = "Check"
+
                 await db.commit()
                 print(f"[{contract_id}] Analysis COMPLETED successfully.")
-                
+
             except Exception as e:
                 contract.status = "FAILED"
+                contract.analysis_result = {"error": str(e)}
                 print(f"[{contract_id}] Error: {e}")
                 await db.commit()
 
     # Windows 환경 호환성 코드
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        
+
     asyncio.run(run_analysis())
+
+
+@celery_app.task(name="analyze_contract_quick")
+def analyze_contract_quick_task(contract_id: int):
+    """
+    Celery Task (Quick Mode):
+    빠른 분석을 위한 간소화된 파이프라인 (RAPTOR, Reasoning Trace 비활성화)
+
+    지원 파일 형식:
+    - 문서: PDF, HWP, HWPX, DOCX, DOC, TXT, RTF, MD
+    - 이미지: PNG, JPG, JPEG, GIF, WEBP, BMP, TIFF
+    """
+
+    async def run_quick_analysis():
+        async with AsyncSessionLocal() as db:
+            stmt = select(Contract).where(Contract.id == contract_id)
+            result = await db.execute(stmt)
+            contract = result.scalar_one_or_none()
+
+            if not contract:
+                print(f"Error: Contract {contract_id} not found.")
+                return
+
+            print(f"[{contract_id}] Quick Analysis START for {contract.title}...")
+
+            contract.status = "PROCESSING"
+            await db.commit()
+
+            try:
+                # 파일 경로 및 확장자 확인
+                relative_path = contract.file_url.lstrip("/")
+                file_path = backend_dir / relative_path
+                extension = get_file_extension(contract.file_url)
+
+                print(f"[{contract_id}] File type: {extension}")
+
+                # 텍스트 추출
+                full_text = extract_text_from_file(str(file_path), extension)
+
+                if not full_text or len(full_text.strip()) < 10:
+                    raise Exception("텍스트 추출 실패")
+
+                print(f"[{contract_id}] Extracted: {len(full_text)} characters")
+
+                # Quick 모드: 일부 기능 비활성화
+                config = PipelineConfig(
+                    enable_pii_masking=True,
+                    enable_hyde=True,
+                    enable_raptor=False,  # 비활성화
+                    enable_crag=True,
+                    enable_constitutional_ai=True,
+                    enable_stress_test=True,
+                    enable_redlining=True,
+                    enable_judge=True,
+                    enable_reasoning_trace=False,  # 비활성화
+                    enable_dspy=False  # 비활성화
+                )
+
+                pipeline = AdvancedAIPipeline(config=config)
+                pipeline_result = pipeline.analyze(
+                    contract_text=full_text,
+                    contract_id=str(contract_id)
+                )
+
+                contract.status = "COMPLETED"
+                contract.extracted_text = full_text
+                contract.analysis_result = pipeline_result.to_dict()
+                contract.risk_level = pipeline_result.risk_level
+
+                await db.commit()
+                print(f"[{contract_id}] Quick Analysis COMPLETED in {pipeline_result.processing_time:.2f}s")
+
+            except Exception as e:
+                contract.status = "FAILED"
+                contract.analysis_result = {"error": str(e)}
+                print(f"[{contract_id}] Error: {e}")
+                await db.commit()
+
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    asyncio.run(run_quick_analysis())
+
+
+@celery_app.task(name="analyze_image_contract")
+def analyze_image_contract_task(contract_id: int):
+    """
+    Celery Task (Image-Only Mode):
+    이미지 파일 전용 분석 (Vision API로 텍스트 및 구조 추출)
+
+    지원 형식: PNG, JPG, JPEG, GIF, WEBP, BMP, TIFF
+    """
+
+    async def run_image_analysis():
+        async with AsyncSessionLocal() as db:
+            stmt = select(Contract).where(Contract.id == contract_id)
+            result = await db.execute(stmt)
+            contract = result.scalar_one_or_none()
+
+            if not contract:
+                print(f"Error: Contract {contract_id} not found.")
+                return
+
+            print(f"[{contract_id}] Image Analysis START for {contract.title}...")
+
+            contract.status = "PROCESSING"
+            await db.commit()
+
+            try:
+                relative_path = contract.file_url.lstrip("/")
+                file_path = backend_dir / relative_path
+                extension = get_file_extension(contract.file_url)
+
+                if not is_image_file(extension):
+                    raise Exception(f"이미지 파일이 아닙니다: {extension}")
+
+                # Vision API로 구조화된 파싱
+                vision_parser = VisionParser()
+                parse_result = vision_parser.parse_image(str(file_path), extract_tables=True)
+
+                full_text = parse_result.raw_text
+                structured_markdown = parse_result.structured_markdown
+                tables = parse_result.tables
+
+                if not full_text or len(full_text.strip()) < 10:
+                    raise Exception("이미지에서 텍스트를 추출할 수 없습니다")
+
+                print(f"[{contract_id}] Vision OCR extracted: {len(full_text)} characters")
+                print(f"[{contract_id}] Tables found: {len(tables)}")
+
+                # AI 파이프라인 분석
+                config = PipelineConfig(
+                    enable_pii_masking=True,
+                    enable_hyde=True,
+                    enable_raptor=False,  # 이미지는 단일 페이지이므로 RAPTOR 불필요
+                    enable_crag=True,
+                    enable_constitutional_ai=True,
+                    enable_stress_test=True,
+                    enable_redlining=True,
+                    enable_judge=True,
+                    enable_reasoning_trace=True,
+                    enable_dspy=True
+                )
+
+                pipeline = AdvancedAIPipeline(config=config)
+                pipeline_result = pipeline.analyze(
+                    contract_text=full_text,
+                    contract_id=str(contract_id)
+                )
+
+                # 이미지 특화 메타데이터 추가
+                analysis_result = pipeline_result.to_dict()
+                analysis_result["image_analysis"] = {
+                    "structured_markdown": structured_markdown,
+                    "tables": tables,
+                    "checkboxes": parse_result.checkboxes,
+                    "signatures": parse_result.signatures
+                }
+
+                contract.status = "COMPLETED"
+                contract.extracted_text = full_text
+                contract.analysis_result = analysis_result
+                contract.risk_level = pipeline_result.risk_level
+
+                await db.commit()
+                print(f"[{contract_id}] Image Analysis COMPLETED in {pipeline_result.processing_time:.2f}s")
+
+            except Exception as e:
+                contract.status = "FAILED"
+                contract.analysis_result = {"error": str(e)}
+                print(f"[{contract_id}] Error: {e}")
+                await db.commit()
+
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    asyncio.run(run_image_analysis())

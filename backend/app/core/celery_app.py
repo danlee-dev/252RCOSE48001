@@ -15,8 +15,8 @@ if str(backend_dir) not in sys.path:
 project_root = Path(__file__).parent.parent.parent.parent
 load_dotenv(project_root / ".env") 
 
-# Redis URL 설정 (기본값 설정은 .env 파일에 따라 수정 필요)
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+# Redis URL 설정 (Railway REDIS_URL 우선, 그 다음 CELERY_BROKER_URL)
+CELERY_BROKER_URL = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 
 # Celery 인스턴스 생성
 celery_app = Celery(

@@ -1,0 +1,123 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { authApi } from "@/lib/api";
+import { IconLoading, Logo } from "@/components/icons";
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      await authApi.register(email, password, name);
+      await authApi.login(email, password);
+      router.push("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "회원가입에 실패했습니다");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50 px-4 py-8">
+      <div className="w-full max-w-sm animate-fadeInUp">
+        {/* Logo & Title */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <div className="animate-float drop-shadow-lg">
+              <Logo size={56} color="#111827" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">DocScanner AI</h1>
+          <p className="text-sm text-gray-500 mt-2 tracking-tight">새 계정을 만들어 시작하세요</p>
+        </div>
+
+        {/* Register Card */}
+        <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-5 sm:p-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="p-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl animate-fadeIn">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5 tracking-tight">
+                이름
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="input-field text-sm h-11"
+                placeholder="홍길동"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5 tracking-tight">
+                이메일
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input-field text-sm h-11"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5 tracking-tight">
+                비밀번호
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={4}
+                className="input-field text-sm h-11"
+                placeholder="4자 이상"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 text-sm font-medium text-white bg-gray-900 rounded-xl shadow-sm hover:bg-gray-800 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-sm flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
+            >
+              {loading && <IconLoading size={16} />}
+              회원가입
+            </button>
+          </form>
+        </div>
+
+        {/* Footer Link */}
+        <p className="text-center text-sm text-gray-500 mt-6 tracking-tight">
+          이미 계정이 있으신가요?{" "}
+          <Link href="/login" className="font-medium text-gray-900 hover:text-gray-700 transition-colors py-1">
+            로그인
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}

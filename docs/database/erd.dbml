@@ -1,0 +1,87 @@
+// DocScanner AI - Database ERD
+// https://dbdiagram.io 에서 사용
+
+// ===========================================
+// PostgreSQL Tables
+// ===========================================
+
+Table users {
+  id integer [pk, increment]
+  email varchar [unique, not null]
+  password varchar [not null, note: '해시된 비밀번호']
+  username varchar [not null]
+  hashed_refresh_token varchar [note: 'JWT 리프레시 토큰 해시']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    email [unique]
+  }
+}
+
+Table contracts {
+  id integer [pk, increment]
+  user_id integer [ref: > users.id, not null]
+  title varchar [default: '분석중...']
+  file_url varchar [not null, note: '업로드된 파일 경로']
+  status varchar [default: 'PENDING', note: 'PENDING, ANALYZING, COMPLETED, FAILED']
+  extracted_text text [note: '문서에서 추출된 원본 텍스트']
+  analysis_result jsonb [note: 'AI 분석 결과 (아래 구조 참조)']
+  risk_level varchar [note: 'HIGH, MEDIUM, LOW']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    user_id
+  }
+}
+
+// ===========================================
+// analysis_result JSONB 구조 (참고용)
+// ===========================================
+// {
+//   "overall_risk_level": "HIGH" | "MEDIUM" | "LOW",
+//   "summary": "전체 분석 요약",
+//   "total_underpayment": {
+//     "monthly": 150000,
+//     "yearly": 1800000
+//   },
+//   "violations": [
+//     {
+//       "violation_type": "최저임금 미달",
+//       "severity": "HIGH",
+//       "description": "시급이 2025년 최저임금 미만",
+//       "legal_basis": "근로기준법 제6조, 최저임금법 제6조",
+//       "suggestion": "시급을 10,030원 이상으로 조정",
+//       "original_text": "시급 9,000원",
+//       "sources": ["판례 2019다12345", "행정해석 근로기준-1234"]
+//     }
+//   ],
+//   "clauses": [
+//     {
+//       "clause_type": "임금",
+//       "text": "제3조 (임금) ...",
+//       "risk_level": "HIGH"
+//     }
+//   ],
+//   "constitutional_review": {
+//     "passed": true,
+//     "violations": []
+//   },
+//   "judge_score": {
+//     "overall": 0.85,
+//     "accuracy": 0.9,
+//     "legal_basis": 0.85,
+//     "consistency": 0.8
+//   },
+//   "reasoning_trace": {
+//     "nodes": [...],
+//     "edges": [...]
+//   }
+// }
+
+// ===========================================
+// Alembic Migration Table (자동 생성)
+// ===========================================
+
+Table alembic_version {
+  version_num varchar(32) [pk, not null]
+}

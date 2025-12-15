@@ -16,6 +16,7 @@ docs/
 │   ├── legal-data-collection.md # 법률 데이터 수집 가이드
 │   └── legal-data-types.md      # 법률 데이터 타입 설명
 └── guides/                      # 사용 가이드
+    ├── development-setup.md     # 개발 환경 설정 가이드
     └── embedding-search.md      # 임베딩 검색 테스트 가이드
 ```
 
@@ -57,6 +58,12 @@ docs/
 
 ### 사용 가이드 (guides/)
 
+**[개발 환경 설정 가이드](guides/development-setup.md)**
+
+- Docker, Backend, Celery, Frontend 실행 방법
+- Mac / Windows 환경별 설정
+- 문제 해결 가이드
+
 **[임베딩 검색 가이드](guides/embedding-search.md)**
 - 통합 임베딩 검색 시스템 사용법
 - 현재 데이터 구성 및 통계
@@ -67,15 +74,19 @@ docs/
 
 ### 새로운 팀원이 처음 시작할 때
 
-1. **프로젝트 이해**:
+1. **개발 환경 설정**:
+   - [개발 환경 설정 가이드](guides/development-setup.md) 따라 환경 구축
+   - Docker, Backend, Celery 실행
+
+2. **프로젝트 이해**:
    - [프로젝트 구조](project/project-structure.md) 읽기
    - [협업 가이드](project/collaboration-guide.md) 확인
 
-2. **데이터 파이프라인 이해**:
+3. **데이터 파이프라인 이해**:
    - [PDF 데이터 처리](data-pipeline/pdf-processing.md) 읽기
    - [법률 데이터 파이프라인](data-pipeline/legal-data-pipeline.md) 읽기
 
-3. **검색 테스트 실행**:
+4. **검색 테스트 실행**:
    - [임베딩 검색 가이드](guides/embedding-search.md) 참고
    - 테스트 스크립트 실행
 
@@ -83,6 +94,7 @@ docs/
 
 | 작업 | 참고 문서 |
 |------|----------|
+| 개발 환경 설정 | [개발 환경 설정 가이드](guides/development-setup.md) |
 | 법률 데이터 추가 수집 | [법률 데이터 수집](data-pipeline/legal-data-collection.md) |
 | PDF 문서 추가 | [PDF 데이터 처리](data-pipeline/pdf-processing.md) |
 | 검색 품질 테스트 | [임베딩 검색 가이드](guides/embedding-search.md) |

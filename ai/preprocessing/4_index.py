@@ -2,11 +2,25 @@ import os
 import json
 from pathlib import Path
 from elasticsearch import Elasticsearch, helpers
+from dotenv import load_dotenv
 from tqdm import tqdm # 진행률 표시
 
 # --- 설정 ---
-# 1. Elasticsearch 연결
-es = Elasticsearch("http://localhost:9200")
+# 0. 환경변수 로드
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
+load_dotenv(os.path.join(root_dir, ".env"), override=True)
+
+# 1. Elasticsearch 연결 (Cloud 또는 Local)
+es_url = os.getenv("ES_URL", "http://localhost:9200")
+es_api_key = os.getenv("ES_API_KEY")
+
+if es_api_key:
+    es = Elasticsearch(es_url, api_key=es_api_key)
+    print(f"Elasticsearch Cloud 연결: {es_url}")
+else:
+    es = Elasticsearch(es_url)
+    print(f"Elasticsearch Local 연결: {es_url}")
 
 # 2. 인덱스 이름 정의
 INDEX_NAME = "docscanner_chunks"

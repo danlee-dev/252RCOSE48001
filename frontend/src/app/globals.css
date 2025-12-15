@@ -4,52 +4,36 @@
 @tailwind utilities;
 
 :root {
-  /* 브랜드 컬러 시스템 - 청록 계열 */
-  --brand-900: 185 43% 26%;        /* #275F63 */
-  --brand-800: 194 56% 39%;        /* #38818D */
-  --brand-700: 193 59% 44%;        /* #4295A5 */
-  --brand-600: 193 58% 51%;        /* #4CAABE */
-  --brand-500: 192 60% 58%;        /* #54BAD1 */
-  --brand-400: 191 59% 63%;        /* #5FC4D7 */
-  --brand-300: 190 60% 68%;        /* #73CEDE */
-  --brand-200: 189 64% 75%;        /* #96DCE8 */
-  --brand-100: 188 73% 84%;        /* #BEEAF1 */
-  --brand-50: 187 86% 93%;         /* #E4F6F9 */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
 
-  /* 기본 색상 */
-  --background: 0 0% 96%;
-  --foreground: 240 10% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
 
-  /* 주요 색상 - 브랜드 컬러 적용 */
-  --primary: var(--brand-600);
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+
+  --primary: 0 0% 9%;
   --primary-foreground: 0 0% 100%;
-  --secondary: var(--brand-100);
-  --secondary-foreground: var(--brand-800);
 
-  /* 시스템 색상 */
-  --muted: var(--brand-50);
-  --muted-foreground: var(--brand-700);
-  --accent: var(--brand-100);
-  --accent-foreground: var(--brand-800);
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 9%;
+
   --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive-foreground: 0 0% 100%;
 
-  /* 경계선 및 입력 */
-  --border: var(--brand-200);
-  --input: var(--brand-100);
-  --ring: var(--brand-600);
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
 
-  /* 아이폰 스타일 반경 */
-  --radius: 1rem;
-  --radius-lg: 1.25rem;
-  --radius-md: 0.75rem;
-  --radius-sm: 0.5rem;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 9%;
+
+  --ring: 0 0% 9%;
+  --radius: 0.5rem;
 }
-
 
 * {
   border-color: hsl(var(--border));
@@ -58,73 +42,846 @@
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
-  font-family: 'Pretendard Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@layer base {
-  h1 {
-    @apply scroll-m-20 text-4xl font-extrabold tracking-tight;
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* 텍스트 선택 스타일 */
+::selection {
+  background: hsl(142 76% 36% / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* 포커스 스타일 */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* 링크 기본 스타일 제거 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 버튼 기본 스타일 */
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 입력 필드 기본 스타일 */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  h2 {
-    @apply scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0;
-  }
-  h3 {
-    @apply scroll-m-20 text-2xl font-semibold tracking-tight;
-  }
-  h4 {
-    @apply scroll-m-20 text-xl font-semibold tracking-tight;
-  }
-  p {
-    @apply leading-7 [&:not(:first-child)]:mt-6;
-  }
-  blockquote {
-    @apply mt-6 border-l-2 pl-6 italic;
-  }
-  ul {
-    @apply my-6 ml-6 list-disc [&>li]:mt-2;
-  }
-  ol {
-    @apply my-6 ml-6 list-decimal [&>li]:mt-2;
-  }
-  code {
-    @apply relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
-  }
-  table {
-    @apply w-full;
-  }
-  tr {
-    @apply m-0 border-t p-0 even:bg-muted;
-  }
-  th {
-    @apply border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right;
-  }
-  td {
-    @apply border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* PDF 텍스트 레이어 스타일 */
-.textLayer {
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.animate-fadeInDown {
+  animation: fadeInDown 0.3s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.2s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* AR Scanner animations */
+@keyframes scanLine {
+  0% { top: 8%; }
+  50% { top: 85%; }
+  100% { top: 8%; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-scan-line {
+  animation: scanLine 2s ease-in-out infinite;
   position: absolute;
-  text-align: initial;
-  inset: 0;
 }
 
-.textLayer span,
-.textLayer br {
-  color: transparent;
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* 전환 효과 유틸리티 */
+.transition-base {
+  transition: all 0.2s ease;
+}
+
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-bounce {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 호버 효과 */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-glow {
+  transition: box-shadow 0.2s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 그림자 유틸리티 */
+.shadow-soft {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-medium {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-strong {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-inner-soft {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* 카드 스타일 */
+.card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: hsl(0 0% 85%);
+}
+
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  transform: translateY(-1px);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+}
+
+/* 버튼 개선 */
+.btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+  background: hsl(0 0% 15%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary {
+  background: white;
+  color: hsl(var(--foreground));
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  border: 1px solid hsl(var(--border));
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: hsl(var(--muted));
+  border-color: hsl(0 0% 80%);
+}
+
+/* 입력 필드 개선 */
+.input-field {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: white;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.input-field:hover {
+  border-color: hsl(0 0% 80%);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 테이블 행 호버 */
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+
+.table-row-hover:hover {
+  background-color: hsl(0 0% 98%);
+}
+
+/* 배지 개선 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.badge-danger {
+  background: hsl(0 84% 95%);
+  color: hsl(0 70% 45%);
+  border: 1px solid hsl(0 70% 90%);
+}
+
+.badge-warning {
+  background: hsl(38 92% 95%);
+  color: hsl(30 80% 40%);
+  border: 1px solid hsl(38 80% 85%);
+}
+
+.badge-success {
+  background: hsl(142 76% 95%);
+  color: hsl(142 60% 30%);
+  border: 1px solid hsl(142 50% 85%);
+}
+
+.badge-neutral {
+  background: hsl(0 0% 96%);
+  color: hsl(0 0% 40%);
+  border: 1px solid hsl(0 0% 90%);
+}
+
+/* 드래그 영역 */
+.drop-zone {
+  border: 2px dashed hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(0 0% 99%);
+  transition: all 0.2s ease;
+}
+
+.drop-zone:hover {
+  border-color: hsl(0 0% 70%);
+  background: hsl(0 0% 98%);
+}
+
+.drop-zone-active {
+  border-color: hsl(var(--primary));
+  background: hsl(0 0% 97%);
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.03);
+}
+
+/* 스켈레톤 로딩 */
+.skeleton {
+  background: linear-gradient(90deg, hsl(0 0% 96%) 25%, hsl(0 0% 92%) 50%, hsl(0 0% 96%) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* 리플 효과 */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(0,0,0,0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.ripple:active::after {
+  opacity: 1;
+}
+
+/* PDF 뷰어 텍스트 레이어 */
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1.0;
+}
+
+.pdf-text-layer > span {
   position: absolute;
   white-space: pre;
+  color: transparent;
   cursor: text;
-  transform-origin: 0% 0%;
 }
 
-.textLayer span::selection {
-  background: rgba(0, 123, 255, 0.3);
-  color: #000;
+.pdf-text-layer > span::selection {
+  background: hsl(142 76% 36% / 0.3);
 }
 
-.textLayer span::-moz-selection {
-  background: rgba(0, 123, 255, 0.3);
-  color: #000;
+/* 하이라이트 스타일 */
+.highlight-danger {
+  background: hsl(0 84% 60% / 0.15);
+  border-bottom: 2px solid hsl(0 84% 60%);
+}
+
+.highlight-warning {
+  background: hsl(38 92% 50% / 0.15);
+  border-bottom: 2px solid hsl(38 92% 50%);
+}
+
+.highlight-success {
+  background: hsl(142 76% 36% / 0.15);
+  border-bottom: 2px solid hsl(142 76% 36%);
+}
+
+/* 유틸리티 */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Prose (Markdown) styles for chat */
+.prose {
+  color: hsl(var(--foreground));
+  max-width: none;
+  line-height: 1.6;
+}
+
+.prose p {
+  margin: 0.5em 0;
+}
+
+.prose p:first-child {
+  margin-top: 0;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  line-height: 1.3;
+}
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child {
+  margin-top: 0;
+}
+
+.prose h1 { font-size: 1.25em; }
+.prose h2 { font-size: 1.125em; }
+.prose h3 { font-size: 1em; }
+
+.prose ul, .prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin: 0.25em 0;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose code {
+  background: hsl(0 0% 95%);
+  padding: 0.125em 0.375em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.prose pre {
+  background: hsl(0 0% 96%);
+  padding: 0.75em 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.prose blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1em;
+  margin: 0.75em 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.prose a {
+  color: hsl(217 91% 50%);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  color: hsl(217 91% 40%);
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 1em 0;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 0.875em;
+}
+
+.prose th, .prose td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.prose th {
+  background: hsl(0 0% 97%);
+  font-weight: 600;
+}
+
+.prose-sm {
+  font-size: 0.875rem;
+}
+
+.prose-sm h1 { font-size: 1.125em; }
+.prose-sm h2 { font-size: 1em; }
+.prose-sm h3 { font-size: 0.9375em; }
+
+/* Contract Markdown Styles */
+.contract-markdown {
+  font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -0.025em;
+  line-height: 1.8;
+  color: hsl(0 0% 15%);
+}
+
+.contract-markdown h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5em;
+  padding-bottom: 0.75em;
+  border-bottom: 2px solid hsl(0 0% 90%);
+}
+
+.contract-markdown h2 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  color: hsl(0 0% 10%);
+}
+
+.contract-markdown h3 {
+  font-size: 1em;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  color: hsl(0 0% 20%);
+}
+
+.contract-markdown p {
+  margin: 0.5em 0;
+}
+
+.contract-markdown ol {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.75em 0;
+}
+
+.contract-markdown ol > li {
+  position: relative;
+  padding-left: 2em;
+  margin: 0.5em 0;
+}
+
+.contract-markdown ol > li::before {
+  content: counter(list-item) ".";
+  position: absolute;
+  left: 0;
+  font-weight: 600;
+  color: hsl(0 0% 30%);
+}
+
+.contract-markdown ul {
+  list-style: none;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.contract-markdown ul > li {
+  position: relative;
+  padding-left: 1em;
+  margin: 0.35em 0;
+}
+
+.contract-markdown ul > li::before {
+  content: "-";
+  position: absolute;
+  left: 0;
+  color: hsl(0 0% 50%);
+}
+
+.contract-markdown strong {
+  font-weight: 600;
+  color: hsl(0 0% 5%);
+}
+
+.contract-markdown em {
+  font-style: normal;
+  color: hsl(0 0% 40%);
+  font-size: 0.95em;
+}
+
+.contract-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.9em;
+}
+
+.contract-markdown th,
+.contract-markdown td {
+  border: 1px solid hsl(0 0% 85%);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.contract-markdown th {
+  background: hsl(0 0% 97%);
+  font-weight: 600;
+}
+
+.contract-markdown hr {
+  border: none;
+  border-top: 1px solid hsl(0 0% 85%);
+  margin: 2em 0;
+}
+
+.contract-markdown input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: hsl(0 0% 20%);
+}
+
+/* Signature section styling */
+.contract-markdown hr + p,
+.contract-markdown hr + ul,
+.contract-markdown hr + ol {
+  margin-top: 1em;
+}
+
+/* Safe Area Insets for mobile devices */
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Touch-friendly utility - minimum touch target size */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent text selection on touch devices */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Prevent scroll bounce on iOS */
+.no-bounce {
+  overscroll-behavior: none;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile tap highlight removal */
+.tap-transparent {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Bottom sheet animation */
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slideUpSheet {
+  animation: slideUpSheet 0.3s ease-out;
+}
+
+/* Slide in from bottom animation (full screen) */
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* Responsive text utilities */
+@media (max-width: 480px) {
+  .text-responsive-sm {
+    font-size: 0.875rem;
+  }
+
+  .text-responsive-base {
+    font-size: 0.9375rem;
+  }
+}
+
+/* Mobile-first card styles */
+@media (max-width: 640px) {
+  .card {
+    border-radius: 16px;
+  }
+
+  .card:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
 }
