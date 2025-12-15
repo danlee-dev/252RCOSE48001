@@ -11,6 +11,7 @@ Reference: "Corrective Retrieval Augmented Generation" (CRAG), Yan et al. 2024
 import os
 import json
 import hashlib
+import time
 from typing import List, Dict, Any, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -18,6 +19,8 @@ from datetime import datetime
 from functools import lru_cache
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+
+from app.core.token_usage_tracker import record_llm_usage
 
 
 class RetrievalQuality(Enum):
@@ -300,11 +303,12 @@ class GraphGuidedCRAG:
         es_client: Optional[Any] = None,
         neo4j_driver: Optional[Any] = None,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-4o-mini",
         quality_threshold: float = 0.7,
         max_correction_iterations: int = 3,
         enable_caching: bool = True,
-        cache_ttl_seconds: int = 3600
+        cache_ttl_seconds: int = 3600,
+        contract_id: Optional[str] = None
     ):
         """
         Args:
@@ -316,6 +320,7 @@ class GraphGuidedCRAG:
             max_correction_iterations: 최대 보정 반복 횟수
             enable_caching: 캐싱 활성화
             cache_ttl_seconds: 캐시 TTL
+            contract_id: 계약서 ID (토큰 추적용)
         """
         self.es_client = es_client
         self.neo4j_driver = neo4j_driver
@@ -324,6 +329,7 @@ class GraphGuidedCRAG:
         self.max_correction_iterations = max_correction_iterations
         self.enable_caching = enable_caching
         self.cache_ttl_seconds = cache_ttl_seconds
+        self.contract_id = contract_id
 
         # 평가 캐시
         self._evaluation_cache: Dict[str, Tuple[QualityEvaluation, datetime]] = {}
@@ -631,6 +637,7 @@ class GraphGuidedCRAG:
         docs: List[RetrievedDocument]
     ) -> QualityEvaluation:
         """LLM 기반 품질 평가"""
+        llm_start = time.time()
         try:
             doc_texts = "\n\n---\n\n".join([
                 f"[문서 {i+1}] (ID: {d.id}, 점수: {d.score:.2f})\n"
@@ -672,6 +679,23 @@ class GraphGuidedCRAG:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.1
+                )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="crag.evaluate_quality",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
                 )
 
             result = json.loads(response.choices[0].message.content)
@@ -771,6 +795,7 @@ class GraphGuidedCRAG:
         if self.llm_client is None:
             return {"rewritten_query": query, "decomposed_queries": []}
 
+        llm_start = time.time()
         try:
             prompt = self.QUERY_REWRITE_PROMPT.format(query=query)
 
@@ -787,6 +812,23 @@ class GraphGuidedCRAG:
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     temperature=0.3
+                )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="crag.rewrite_query",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
                 )
 
             return json.loads(response.choices[0].message.content)
@@ -831,6 +873,7 @@ class GraphGuidedCRAG:
 
     def _extract_relevant_part(self, query: str, text: str) -> str:
         """LLM으로 관련 부분 추출"""
+        llm_start = time.time()
         try:
             prompt = self.KNOWLEDGE_REFINEMENT_PROMPT.format(
                 query=query,
@@ -852,6 +895,23 @@ class GraphGuidedCRAG:
                     response_format={"type": "json_object"},
                     max_tokens=800,
                     temperature=0.2
+                )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="crag.extract_relevant",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
                 )
 
             result = json.loads(response.choices[0].message.content)

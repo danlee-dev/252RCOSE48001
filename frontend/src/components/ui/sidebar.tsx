@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { LucideIcon, ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Logo } from "@/components/icons"
 
 interface SidebarItem {
   title: string
@@ -24,24 +25,10 @@ export function Sidebar({ items, className, onCollapse }: SidebarProps) {
     <aside className={cn("w-64 min-h-screen bg-white border-r border-gray-200 relative transition-all duration-300", className)}>
       <div className="p-6">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary to-brand-700 rounded-xl flex items-center justify-center shadow-md">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polygon points="14,2 14,8 20,8" />
-              <line x1="8" y1="13" x2="16" y2="13" />
-              <line x1="8" y1="17" x2="16" y2="17" />
-              <line x1="8" y1="9" x2="10" y2="9" />
-            </svg>
+          <div className="flex-shrink-0 flex items-center justify-center">
+            <Logo size={36} color="#111827" />
           </div>
-          <div className="flex flex-col justify-center gap-2 leading-none">
+          <div className="flex flex-col justify-center gap-1 leading-none">
             <span className="text-xl font-bold text-foreground leading-none">
               DocScanner.ai
             </span>

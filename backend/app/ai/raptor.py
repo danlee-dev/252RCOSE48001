@@ -12,6 +12,7 @@ Reference: ICLR 2024 - "RAPTOR: Recursive Abstractive Processing for Tree-Organi
 import os
 import json
 import asyncio
+import time
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,6 +20,8 @@ from collections import defaultdict
 import numpy as np
 from datetime import datetime
 import hashlib
+
+from app.core.token_usage_tracker import record_llm_usage
 
 
 class SummarizationStrategy(Enum):
@@ -292,12 +295,13 @@ class RAPTORIndexer:
         self,
         llm_client: Optional[Any] = None,
         embedding_model: Optional[Any] = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-4o-mini",
         cluster_size: int = 5,
         max_levels: int = 3,
         summarization_strategy: SummarizationStrategy = SummarizationStrategy.LEGAL_FOCUSED,
         clustering_method: ClusteringMethod = ClusteringMethod.ADAPTIVE,
-        min_cluster_size: int = 2
+        min_cluster_size: int = 2,
+        contract_id: Optional[str] = None
     ):
         """
         Args:
@@ -309,6 +313,7 @@ class RAPTORIndexer:
             summarization_strategy: 요약 전략
             clustering_method: 클러스터링 방법
             min_cluster_size: 최소 클러스터 크기
+            contract_id: 계약서 ID (토큰 추적용)
         """
         self.model = model
         self.cluster_size = cluster_size
@@ -316,6 +321,7 @@ class RAPTORIndexer:
         self.summarization_strategy = summarization_strategy
         self.clustering_method = clustering_method
         self.min_cluster_size = min_cluster_size
+        self.contract_id = contract_id
 
         # LLM 클라이언트 초기화
         if llm_client is None:
@@ -636,6 +642,7 @@ class RAPTORIndexer:
         if self.llm_client is None:
             return "\n\n".join(texts[:3])
 
+        llm_start = time.time()
         try:
             # 카테고리별 프롬프트 선택
             if self.summarization_strategy == SummarizationStrategy.LEGAL_FOCUSED:
@@ -671,6 +678,24 @@ class RAPTORIndexer:
                     temperature=0.3,
                     max_completion_tokens=800
                 )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="raptor.summarize",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
+
             return response.choices[0].message.content
 
         except Exception as e:
@@ -1043,6 +1068,7 @@ class ContractRAPTOR:
         if self.indexer.llm_client is None:
             return "\n\n".join(f"[{k}]\n{v}" for k, v in category_summaries.items())
 
+        llm_start = time.time()
         try:
             summaries_text = "\n\n".join(
                 f"[{category}]\n{summary}"
@@ -1075,6 +1101,24 @@ class ContractRAPTOR:
                     temperature=0.3,
                     max_completion_tokens=1000
                 )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.indexer.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.indexer.contract_id,
+                    module="raptor.contract_overview",
+                    model=self.indexer.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
+
             return response.choices[0].message.content
 
         except Exception as e:

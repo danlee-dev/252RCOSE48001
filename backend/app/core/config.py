@@ -52,7 +52,7 @@ class Settings:
     # LLM 모델 선택 (하이브리드 접근법)
     LLM_RETRIEVAL_MODEL: str = os.getenv("LLM_RETRIEVAL_MODEL", "gemini-2.5-flash-lite")
     LLM_REASONING_MODEL: str = os.getenv("LLM_REASONING_MODEL", "gpt-5-mini")
-    LLM_HYDE_MODEL: str = os.getenv("LLM_HYDE_MODEL", "gpt-4o")
+    LLM_HYDE_MODEL: str = os.getenv("LLM_HYDE_MODEL", "gpt-4o-mini")
 
     # 6. 내부 서비스 인증
     INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY", "")

@@ -25,6 +25,7 @@ import time
 from app.core.config import settings
 from app.core.llm_client import get_llm_client, HybridLLMClient, LLMTask
 from app.core.pipeline_logger import PipelineLogger, get_pipeline_logger
+from app.core.token_usage_tracker import TokenUsageTracker, track_token_usage
 
 # AI 모듈 imports
 from .preprocessor import ContractPreprocessor
@@ -102,6 +103,9 @@ class PipelineResult:
     processing_time: float = 0.0
     pipeline_version: str = "2.0.0"  # V2
     timestamp: datetime = field(default_factory=datetime.now)
+
+    # 토큰 사용량 (비용 추적)
+    token_usage: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """딕셔너리로 변환"""
@@ -217,7 +221,8 @@ class PipelineResult:
                 for d in self.retrieved_docs[:5]
             ],
             "processing_time": self.processing_time,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
+            "token_usage": self.token_usage
         }
 
 
@@ -340,6 +345,19 @@ class AdvancedAIPipeline:
         # 파이프라인 로거 초기화
         logger = get_pipeline_logger(contract_id)
         logger.log_step("Pipeline", "started", input_summary=f"Text length: {len(contract_text)} chars")
+
+        # 토큰 사용량 추적기 초기화
+        token_tracker = TokenUsageTracker(contract_id, save_to_file=True)
+        TokenUsageTracker.set_active(token_tracker)
+
+        # 모든 AI 모듈에 contract_id 설정 (토큰 추적용)
+        self.hyde.contract_id = contract_id
+        self.raptor.contract_id = contract_id
+        self.crag.contract_id = contract_id
+        self.constitutional_ai.contract_id = contract_id
+        self.judge.contract_id = contract_id
+        self.redliner.contract_id = contract_id
+        self.clause_analyzer.contract_id = contract_id
 
         try:
             # 1. PII Masking (개인정보 비식별화)
@@ -622,6 +640,29 @@ class AdvancedAIPipeline:
             result.risk_level = "Unknown"
             result.processing_time = time.time() - pipeline_start
             logger.log_error("Pipeline", e, result.processing_time * 1000)
+
+        finally:
+            # 토큰 사용량 요약 저장
+            try:
+                from dataclasses import asdict
+                token_summary = token_tracker.get_summary()
+                result.token_usage = {
+                    "total_input_tokens": token_summary.total_input_tokens,
+                    "total_output_tokens": token_summary.total_output_tokens,
+                    "total_cached_tokens": token_summary.total_cached_tokens,
+                    "total_tokens": token_summary.total_tokens,
+                    "total_cost_usd": token_summary.total_cost_usd,
+                    "total_cost_krw": token_summary.total_cost_krw,
+                    "total_llm_calls": token_summary.total_llm_calls,
+                    "by_model": token_summary.by_model,
+                    "by_module": token_summary.by_module
+                }
+                token_tracker.save_log()
+                token_tracker.print_summary()
+            except Exception as token_error:
+                logger.log_step("TokenUsage", "error", error_message=str(token_error))
+            finally:
+                TokenUsageTracker.remove_active(contract_id)
 
         # 로그 저장
         logger.save()

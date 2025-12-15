@@ -894,33 +894,268 @@ CREATE TABLE contracts (
 
 **인덱스**: `docscanner_chunks`
 
+#### MUVERA 임베딩 (Multi-Vector Retrieval via Fixed Dimensional Encodings)
+
+**출처**: Google Research (2024)
+
+- 논문: [arXiv:2405.19504](https://arxiv.org/abs/2405.19504)
+- 블로그: [Google Research Blog](https://research.google/blog/muvera-making-multi-vector-retrieval-as-fast-as-single-vector-search/)
+- 발표: NeurIPS 2024
+
+**기존 임베딩 vs MUVERA**:
+
+| 구분 | 기존 단일 벡터 임베딩 | MUVERA (다중 벡터 → FDE) |
+|------|---------------------|-------------------------|
+| 방식 | 전체 텍스트 → 1개 벡터 | 문장별 임베딩 → FDE 압축 |
+| 문제점 | 긴 문서에서 세부 의미 손실 | - |
+| 장점 | 빠른 검색 (단순 내적) | 세부 의미 보존 + 빠른 검색 |
+| 검색 | MIPS (내적) | MIPS (FDE 내적 ≈ Chamfer 유사도) |
+
+**예시**:
+
+```
+[기존 방식]
+"근로시간은 1일 8시간, 1주 40시간을 초과할 수 없다.
+ 연장근로는 당사자 합의로 1주 12시간 한도."
+        ↓
+   [단일 벡터] ← 두 문장의 의미가 섞임
+
+[MUVERA 방식]
+"근로시간은 1일 8시간, 1주 40시간을 초과할 수 없다."  → [벡터1]
+"연장근로는 당사자 합의로 1주 12시간 한도."           → [벡터2]
+        ↓
+   [FDE 압축] ← 각 문장의 의미가 파티션별로 보존
+        ↓
+   [단일 벡터 (1024차원)]
+```
+
+**해결하려는 문제**:
+
+ColBERT 같은 다중 벡터 모델은 토큰당 하나의 임베딩을 생성하여 검색 정확도가 높지만, Chamfer 유사도 계산 비용이 크고 기존 MIPS(Maximum Inner Product Search) 알고리즘을 직접 적용할 수 없음.
+
+**MUVERA 해결책**:
+
+다중 벡터 집합을 FDE(Fixed Dimensional Encoding)로 단일 벡터로 압축. FDE의 내적이 원래 Chamfer 유사도를 근사하도록 설계.
+
+**FDE 알고리즘 상세**:
+
+```
+입력: 문장 임베딩 집합 {v1, v2, ..., vn} (각 1024차원)
+
+1. SimHash 파티셔닝
+   - 랜덤 초평면(hyperplane)으로 벡터 공간을 2^k개 파티션으로 분할
+   - 각 벡터가 어느 파티션에 속하는지 Gray Code로 인덱싱
+   - 본 프로젝트: k=3 → 8개 파티션
+
+2. 파티션별 집계 (Aggregation)
+   - 문서: 각 파티션에 속한 벡터들의 평균 (AVERAGE)
+   - 쿼리: 각 파티션에 속한 벡터들의 합 (SUM)
+   - 비어있는 파티션: 가장 가까운 벡터로 채움 (fill_empty_partitions)
+
+3. 최종 FDE 생성
+   - 모든 파티션의 집계 결과를 연결 (concatenate)
+   - Count Sketch로 최종 차원 압축 (8192 → 1024)
+
+출력: 단일 FDE 벡터 (1024차원)
+```
+
+**왜 문서는 AVERAGE, 쿼리는 SUM인가?**
+
+Chamfer 유사도의 비대칭성을 반영하기 위함. 문서는 정규화(평균)하여 길이에 무관하게 만들고, 쿼리는 합산하여 매칭 강도를 높임.
+
+```
+[청크 (최대 1,000자)]
+          |
+          v
+[문장 단위 분할 (SentenceSplitter)]
+          |
+          v
+[문장별 임베딩 (KURE-v1, 다중 벡터)]
+          |
+          v
+    [FDE 압축]
+          |
+          +-- 임베딩 공간을 초평면으로 분할
+          +-- 각 영역의 벡터들을 평균화
+          |
+          v
+    [단일 벡터 (1024차원)]
+          |
+          v
+    [기존 MIPS 알고리즘으로 고속 검색]
+```
+
+**본 프로젝트 MUVERA 처리 과정**:
+
+1. 기존 청크 로드 (Legal API 14,549개 + PDF 674개)
+2. `SentenceSplitter`로 청크를 문장 단위로 재분할 (마침표/느낌표/물음표 기준, 최소 10자)
+3. 문서 타입 태그 추가 (예: `[판례]`, `[법령해석례]`)
+4. 각 문장을 KURE-v1로 개별 임베딩 (multi-vector)
+5. FDE로 압축하여 단일 1024차원 벡터 생성
+6. Elasticsearch에 인덱싱
+
+**성능 향상** (PLAID 대비):
+
+| 지표 | 개선 |
+|------|------|
+| 후보 검색량 | 5~20배 감소 |
+| 지연시간 | 90% 감소 |
+| 재현율(Recall) | 10% 향상 |
+
+**본 프로젝트 적용**:
+
+- 임베딩 모델: `nlpai-lab/KURE-v1` (한국어 법률 특화)
+- FDE 설정: repetitions=1, simhash_projections=3, partitions=8
+- 최종 차원: 1024
+
+---
+
+#### 구축된 데이터 현황
+
+**총 15,223개 청크** (2025년 11월 25일 기준)
+
+| 데이터 유형 | 문서 수 | 청크 수 | 문서당 평균 청크 |
+|------------|--------|--------|----------------|
+| 판례 (precedent) | 969 | 10,576 | 10.9 |
+| 고용노동부 해설 (labor_ministry) | 1,827 | 3,384 | 1.9 |
+| 법령해석례 (interpretation) | 135 | 589 | 4.4 |
+| **Legal API 소계** | **2,931** | **14,549** | - |
+| 업무 매뉴얼 (manual) | - | 296 | - |
+| 표준취업규칙 (employment_rules) | - | 367 | - |
+| 가이드 (guide) | - | 4 | - |
+| 리플릿 (leaflet) | - | 7 | - |
+| **PDF 문서 소계** | - | **674** | - |
+
+**청킹 설정**:
+
+- 최대 청크 길이: 1,000자
+- 최소 청크 길이: 150자
+- 청크당 평균 문장 수: 3.96
+
+---
+
 **문서 구조**:
 ```json
 {
     "text": "근로기준법 제50조 (근로시간) 1주간의 근로시간은...",
     "source": "근로기준법 제50조",
-    "doc_type": "law",  // law, precedent, interpretation, manual
+    "doc_type": "precedent",  // precedent, interpretation, labor_ministry, manual
     "title": "근로시간",
     "keywords": ["근로시간", "1주", "40시간"],
-    "embedding": [0.1, 0.2, ...]  // 768차원 벡터
+    "embedding": [0.1, 0.2, ...]  // 1024차원 MUVERA FDE 벡터
 }
 ```
 
+**검색 방식**: BM25 + Vector 하이브리드 검색
+
 ### Neo4j (Graph DB)
 
-**노드 유형**:
-- `Document`: 법령/판례/해석 문서
-- `Category`: 카테고리 (임금, 근로시간, 휴일휴가 등)
-- `RiskPattern`: 위험 패턴
-- `LawArticle`: 법률 조항
+**목적**: 법률 문서 간의 인용 관계, 카테고리 분류, 위험 패턴 연결을 그래프로 구조화하여 멀티홉 검색 지원
 
-**관계**:
-```cypher
-(:Document)-[:CATEGORIZED_AS]->(:Category)
-(:Document)-[:CITES]->(:LawArticle)
-(:RiskPattern)-[:RELATES_TO]->(:Document)
-(:LawArticle)-[:RELATED_TO]->(:LawArticle)
+#### 그래프 구축 파이프라인
+
 ```
+5_build_graph.py        → Document 노드 생성 (15,223개 청크)
+        |
+6_create_relationships.py → 노드 라벨 세분화 + Category/Source 관계 생성
+        |
+7_seed_ontology.py      → 온톨로지 구축 (ClauseType, RiskPattern)
+        |
+8_build_multihop_links.py → LLM 기반 법령 인용 관계 추출 (CITES)
+```
+
+#### 노드 유형
+
+| 노드 라벨 | 설명 | 생성 방식 |
+|----------|------|----------|
+| `Document` | 기본 문서 노드 (15,223개) | 5_build_graph.py |
+| `Precedent` | 판례 (10,576개) | 6_create_relationships.py |
+| `Interpretation` | 법령해석례 + 고용노동부 해설 (3,973개) | 6_create_relationships.py |
+| `Manual` | 실무 매뉴얼, 가이드, 리플릿 (307개) | 6_create_relationships.py |
+| `Law` | 인용된 법령 조항 (LLM 추출) | 8_build_multihop_links.py |
+| `Category` | 카테고리 허브 | 6_create_relationships.py |
+| `ClauseType` | 조항 유형 (6종) | 7_seed_ontology.py |
+| `RiskPattern` | 위험 패턴 (4종) | 7_seed_ontology.py |
+
+#### 온톨로지 (지식 체계)
+
+**조항 유형 (ClauseType)** - 6종:
+
+| 조항 유형 | 필수 여부 | 관련 법령 |
+|----------|----------|----------|
+| 임금 | 필수 | 근로기준법 제17조 |
+| 근로시간 | 필수 | 근로기준법 제50조 |
+| 휴일_휴가 | 필수 | 근로기준법 제55조, 제60조 |
+| 계약기간 | 필수 | 기간제법 |
+| 해고_퇴직 | 선택 | 근로기준법 제23조 |
+| 손해배상 | 선택 | 근로기준법 제20조 |
+
+**위험 패턴 (RiskPattern)** - 4종:
+
+| 위험 패턴 | 위험도 | 트리거 키워드 |
+|----------|--------|--------------|
+| 포괄임금제 | High | "포괄하여", "제수당 포함" |
+| 과도한_위약금 | High | "배상하여야", "위약금" |
+| 최저임금_미달 | High | "최저임금", "수습기간 90%" |
+| 부당_해고_조항 | Medium | "즉시 해고", "갑의 판단" |
+
+#### 관계 (Relationships)
+
+```cypher
+// 카테고리 분류
+(:Document)-[:CATEGORIZED_AS]->(:Category)
+
+// 출처 연결
+(:Document)-[:SOURCE_IS]->(:Source)
+
+// 위험 패턴 → 조항 유형
+(:RiskPattern)-[:IS_A_TYPE_OF]->(:ClauseType)
+
+// 위험 패턴 → 판례/해석 (근거 자료)
+(:RiskPattern)-[:HAS_CASE]->(:Precedent)
+(:RiskPattern)-[:HAS_INTERPRETATION]->(:Interpretation)
+
+// LLM 추출 법령 인용 관계
+(:Precedent)-[:CITES]->(:Law)
+(:Interpretation)-[:CITES]->(:Law)
+```
+
+#### 멀티홉 검색 예시
+
+```
+[계약서 조항: "포괄임금제"]
+        |
+        v
+[RiskPattern: 포괄임금제] --HAS_CASE--> [Precedent: 대법원 2019다12345]
+        |                                        |
+        v                                        v
+[ClauseType: 임금]                    [Law: 근로기준법 제56조]
+```
+
+---
+
+### 데이터 수집 현황
+
+#### Legal API 데이터 (open.law.go.kr)
+
+| 데이터 유형 | 수집 건수 | 청크 수 | 수집 일자 |
+|------------|----------|--------|----------|
+| 판례 (precedent) | 969건 | 10,576 | 2025-10-27 |
+| 법령해석례 (interpretation) | 135건 | 589 | 2025-10-27 |
+| 고용노동부 해설 (labor_ministry) | 1,827건 | 3,384 | 2025-10-27 |
+| **소계** | **2,931건** | **14,549** | - |
+
+**수집 키워드**: 근로계약, 임금, 최저임금, 연장근로, 해고, 퇴직금, 연차휴가 등
+
+#### PDF 문서
+
+| 문서명 | 유형 | 청크 수 |
+|-------|------|--------|
+| 개정 표준근로계약서 (2025년) | employment_rules | 367 |
+| 채용절차의 공정화에 관한 법률 업무 매뉴얼 | manual | 296 |
+| 2025년 적용 최저임금 안내 | guide | 4 |
+| 채용절차의 공정화에 관한 법률 리플릿 | leaflet | 7 |
+| **소계** | - | **674** |
 
 ### Redis (캐시 & 작업 큐)
 

@@ -22,6 +22,7 @@ import {
   IconClose,
   IconScan,
   IconChecklist,
+  Logo,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
@@ -847,13 +848,7 @@ export default function HomePage() {
         <div className="px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <Image
-              src="/logo.svg"
-              alt="DocScanner AI"
-              width={28}
-              height={28}
-              className="rounded-lg sm:w-8 sm:h-8"
-            />
+            <Logo size={28} color="#111827" className="sm:w-8 sm:h-8" />
             <h1 className="text-sm sm:text-base font-semibold text-gray-900 tracking-tight hidden xs:block">DocScanner AI</h1>
           </div>
 

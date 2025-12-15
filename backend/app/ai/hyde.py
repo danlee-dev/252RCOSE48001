@@ -12,6 +12,7 @@ Reference: Gao et al., "Precise Zero-Shot Dense Retrieval without Relevance Labe
 import os
 import hashlib
 import asyncio
+import time
 from typing import List, Optional, Dict, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -19,6 +20,8 @@ from enum import Enum
 import numpy as np
 from collections import OrderedDict
 import json
+
+from app.core.token_usage_tracker import record_llm_usage
 
 
 class QueryComplexity(Enum):
@@ -304,14 +307,15 @@ class HyDEGenerator:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-4o-mini",
         temperature: float = 0.3,
         embedding_model: Optional[Any] = None,
         strategy: HyDEStrategy = HyDEStrategy.ADAPTIVE,
         num_documents: int = 3,
         enable_cache: bool = True,
         cache_size: int = 1000,
-        cache_ttl: int = 3600
+        cache_ttl: int = 3600,
+        contract_id: Optional[str] = None
     ):
         """
         Args:
@@ -324,12 +328,14 @@ class HyDEGenerator:
             enable_cache: 캐싱 활성화
             cache_size: 캐시 최대 크기
             cache_ttl: 캐시 TTL (초)
+            contract_id: 계약서 ID (토큰 추적용)
         """
         self.model = model
         self.temperature = temperature
         self.strategy = strategy
         self.num_documents = num_documents
         self.enable_cache = enable_cache
+        self.contract_id = contract_id
 
         # 캐시 초기화
         if enable_cache:
@@ -589,6 +595,7 @@ class HyDEGenerator:
         if self.llm_client is None:
             return self._fallback_expansion(prompt)
 
+        llm_start = time.time()
         try:
             # reasoning 모델은 temperature 미지원, system message도 user로 통합
             if self._is_reasoning_model():
@@ -612,6 +619,24 @@ class HyDEGenerator:
                     temperature=temperature or self.temperature,
                     max_completion_tokens=1500
                 )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="hyde.generate",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
+
             return response.choices[0].message.content
         except Exception as e:
             print(f"HyDE LLM error: {e}")
@@ -795,7 +820,7 @@ class HyDESearchEnhancer:
 
 # 편의 함수
 def create_hyde_generator(
-    model: str = "gpt-4o",
+    model: str = "gpt-4o-mini",
     strategy: HyDEStrategy = HyDEStrategy.ADAPTIVE,
     num_documents: int = 3
 ) -> HyDEGenerator:

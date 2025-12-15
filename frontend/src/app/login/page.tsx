@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { authApi } from "@/lib/api";
-import { IconLoading } from "@/components/icons";
+import { IconLoading, Logo } from "@/components/icons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,13 +33,11 @@ export default function LoginPage() {
       <div className="w-full max-w-sm animate-fadeInUp">
         {/* Logo & Title */}
         <div className="text-center mb-8">
-          <Image
-            src="/logo.svg"
-            alt="DocScanner AI"
-            width={56}
-            height={56}
-            className="mx-auto mb-4"
-          />
+          <div className="flex justify-center mb-4">
+            <div className="animate-float drop-shadow-lg">
+              <Logo size={56} color="#111827" />
+            </div>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">DocScanner AI</h1>
           <p className="text-sm text-gray-500 mt-2 tracking-tight">계약서 AI 분석 서비스에 로그인하세요</p>
         </div>

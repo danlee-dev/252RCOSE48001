@@ -9,9 +9,12 @@ Reference: Anthropic - Constitutional AI: Harmlessness from AI Feedback
 
 import os
 import json
+import time
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+
+from app.core.token_usage_tracker import record_llm_usage
 
 
 class ConstitutionalPrinciple(Enum):
@@ -239,17 +242,20 @@ AI의 답변이 '근로기준법 헌법'을 준수하는지 엄격하게 비판�
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o",
-        strict_mode: bool = True
+        model: str = "gpt-4o-mini",
+        strict_mode: bool = True,
+        contract_id: Optional[str] = None
     ):
         """
         Args:
             llm_client: OpenAI 클라이언트
             model: 사용할 LLM 모델
             strict_mode: 엄격 모드 (위반 시 반드시 수정)
+            contract_id: 계약서 ID (토큰 추적용)
         """
         self.model = model
         self.strict_mode = strict_mode
+        self.contract_id = contract_id
 
         if llm_client is None:
             try:
@@ -304,6 +310,7 @@ AI의 답변이 '근로기준법 헌법'을 준수하는지 엄격하게 비판�
         if self.llm_client is None:
             return self._rule_based_critique(response)
 
+        llm_start = time.time()
         try:
             prompt = self.CRITIQUE_PROMPT.format(response=response)
 
@@ -319,9 +326,26 @@ AI의 답변이 '근로기준법 헌법'을 준수하는지 엄격하게 비판�
                     },
                     {"role": "user", "content": prompt}
                 ],
-                
+
                 response_format={"type": "json_object"}
             )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if result.usage and self.contract_id:
+                cached = 0
+                if hasattr(result.usage, 'prompt_tokens_details') and result.usage.prompt_tokens_details:
+                    cached = getattr(result.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="constitutional_ai.critique",
+                    model=self.model,
+                    input_tokens=result.usage.prompt_tokens,
+                    output_tokens=result.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
 
             critique_data = json.loads(result.choices[0].message.content)
             return self._parse_critiques(critique_data)
@@ -386,6 +410,7 @@ AI의 답변이 '근로기준법 헌법'을 준수하는지 엄격하게 비판�
         if self.llm_client is None:
             return self._add_warnings(original_response, critiques)
 
+        llm_start = time.time()
         try:
             critique_text = "\n".join([
                 f"- [{c.principle.value}] {c.critique}"
@@ -406,9 +431,26 @@ AI의 답변이 '근로기준법 헌법'을 준수하는지 엄격하게 비판�
                     },
                     {"role": "user", "content": prompt}
                 ],
-                
+
                 max_completion_tokens=1500
             )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if result.usage and self.contract_id:
+                cached = 0
+                if hasattr(result.usage, 'prompt_tokens_details') and result.usage.prompt_tokens_details:
+                    cached = getattr(result.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="constitutional_ai.revise",
+                    model=self.model,
+                    input_tokens=result.usage.prompt_tokens,
+                    output_tokens=result.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
 
             return result.choices[0].message.content
 
@@ -517,7 +559,7 @@ class ConstitutionalAnalyzer:
 # 편의 함수
 def create_constitutional_ai(
     strict_mode: bool = True,
-    model: str = "gpt-4o"
+    model: str = "gpt-4o-mini"
 ) -> ConstitutionalAI:
     """Constitutional AI 팩토리 함수"""
     return ConstitutionalAI(model=model, strict_mode=strict_mode)

@@ -10,10 +10,13 @@ Reference: Contract Redlining, Legal Tech AI
 import os
 import re
 import json
+import time
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from difflib import SequenceMatcher, unified_diff
+
+from app.core.token_usage_tracker import record_llm_usage
 
 
 class ChangeType(Enum):
@@ -219,14 +222,17 @@ class GenerativeRedlining:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o"
+        model: str = "gpt-4o-mini",
+        contract_id: Optional[str] = None
     ):
         """
         Args:
             llm_client: OpenAI 클라이언트
             model: 사용할 LLM 모델
+            contract_id: 계약서 ID (토큰 추적용)
         """
         self.model = model
+        self.contract_id = contract_id
 
         if llm_client is None:
             try:
@@ -353,6 +359,7 @@ class GenerativeRedlining:
 
     def _llm_redline(self, clause: str) -> Dict[str, Any]:
         """LLM 기반 Redlining"""
+        llm_start = time.time()
         try:
             prompt = self.REDLINE_PROMPT.format(clause=clause)
 
@@ -365,9 +372,26 @@ class GenerativeRedlining:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                
+
                 response_format={"type": "json_object"}
             )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="redlining.redline",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
 
             result = json.loads(response.choices[0].message.content)
 

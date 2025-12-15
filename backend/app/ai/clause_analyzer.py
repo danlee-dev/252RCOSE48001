@@ -14,12 +14,14 @@ Flow:
 import os
 import json
 import re
+import time
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 
 from app.core.config import settings
+from app.core.token_usage_tracker import TokenUsageTracker, record_llm_usage
 
 
 class ClauseType(Enum):
@@ -312,6 +314,7 @@ class LLMClauseAnalyzer:
         # 모델 기본값: settings에서 가져옴
         self.model = model if model else settings.LLM_REASONING_MODEL  # gpt-5-mini
         self.enable_crag = enable_crag
+        self.contract_id: Optional[str] = None  # 토큰 추적용
 
         if llm_client is None:
             try:
@@ -938,6 +941,7 @@ class LLMClauseAnalyzer:
                 contract_text=contract_text[:8000]
             )
 
+            llm_start = time.time()
             if self._is_reasoning_model():
                 response = self.llm_client.chat.completions.create(
                     model=self.model,
@@ -956,6 +960,23 @@ class LLMClauseAnalyzer:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.1
+                )
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                # cached_tokens 안전하게 추출 (PromptTokensDetails 객체에서)
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="clause_analyzer.extract_clauses",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
                 )
 
             result = json.loads(response.choices[0].message.content)
@@ -1130,6 +1151,7 @@ class LLMClauseAnalyzer:
                     pattern_context=pattern_context if pattern_context else "관련 위험 패턴 없음"
                 )
 
+                llm_start = time.time()
                 if self._is_reasoning_model():
                     response = self.llm_client.chat.completions.create(
                         model=self.model,
@@ -1148,6 +1170,22 @@ class LLMClauseAnalyzer:
                         ],
                         response_format={"type": "json_object"},
                         temperature=0.1
+                    )
+                llm_duration = (time.time() - llm_start) * 1000
+
+                # 토큰 사용량 기록
+                if response.usage and self.contract_id:
+                    cached = 0
+                    if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                        cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module=f"clause_analyzer.analyze_clause_{clause.clause_type.value}",
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        cached_tokens=cached,
+                        duration_ms=llm_duration
                     )
 
                 result = json.loads(response.choices[0].message.content)
@@ -1244,6 +1282,7 @@ class LLMClauseAnalyzer:
                 law_context=law_context
             )
 
+            llm_start = time.time()
             if self._is_reasoning_model():
                 response = self.llm_client.chat.completions.create(
                     model=self.model,
@@ -1262,6 +1301,22 @@ class LLMClauseAnalyzer:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.1
+                )
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="clause_analyzer.holistic_analysis",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
                 )
 
             result = json.loads(response.choices[0].message.content)

@@ -9,9 +9,12 @@ Reference: "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"
 
 import os
 import json
+import time
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+
+from app.core.token_usage_tracker import record_llm_usage
 
 
 class JudgmentCategory(Enum):
@@ -220,17 +223,20 @@ class LLMJudge:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o",
-        strict_mode: bool = True
+        model: str = "gpt-4o-mini",
+        strict_mode: bool = True,
+        contract_id: Optional[str] = None
     ):
         """
         Args:
             llm_client: OpenAI 클라이언트
             model: 심판에 사용할 LLM 모델
             strict_mode: 엄격 모드 (팩트체크 포함)
+            contract_id: 계약서 ID (토큰 추적용)
         """
         self.model = model
         self.strict_mode = strict_mode
+        self.contract_id = contract_id
 
         if llm_client is None:
             try:
@@ -301,6 +307,7 @@ class LLMJudge:
         context: str
     ) -> Dict[str, Any]:
         """LLM 기반 평가"""
+        llm_start = time.time()
         try:
             prompt = self.JUDGE_PROMPT.format(
                 analysis=analysis,
@@ -316,9 +323,26 @@ class LLMJudge:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                
+
                 response_format={"type": "json_object"}
             )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="judge.evaluate",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
 
             return json.loads(response.choices[0].message.content)
 
@@ -363,6 +387,7 @@ class LLMJudge:
 
     def _fact_check(self, analysis: str) -> Dict[str, Any]:
         """팩트 체크"""
+        llm_start = time.time()
         try:
             prompt = self.FACT_CHECK_PROMPT.format(analysis=analysis)
 
@@ -375,9 +400,26 @@ class LLMJudge:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                
+
                 response_format={"type": "json_object"}
             )
+
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if response.usage and self.contract_id:
+                cached = 0
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="judge.fact_check",
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    cached_tokens=cached,
+                    duration_ms=llm_duration
+                )
 
             return json.loads(response.choices[0].message.content)
 
@@ -538,7 +580,7 @@ class AnalysisValidator:
 # 편의 함수
 def create_judge(
     strict_mode: bool = True,
-    model: str = "gpt-4o"
+    model: str = "gpt-4o-mini"
 ) -> LLMJudge:
     """LLMJudge 팩토리 함수"""
     return LLMJudge(model=model, strict_mode=strict_mode)
