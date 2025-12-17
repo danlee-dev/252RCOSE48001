@@ -27,6 +27,9 @@ langchain-core>=0.1.0
 langchain-google-genai>=0.0.6
 langchain-community>=0.0.10
 langgraph>=0.0.20
+# PyTorch CPU-only (must be before sentence-transformers)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 sentence-transformers>=2.2.0
 transformers>=4.30.0
 
