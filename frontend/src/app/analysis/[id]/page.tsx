@@ -996,7 +996,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
 
         // URL에 version 파라미터가 있으면 해당 버전 로드, 없으면 현재 버전 로드
         const targetVersionNum = versionParam ? parseInt(versionParam) : null;
-        let targetVersion = targetVersionNum
+        const targetVersion = targetVersionNum
           ? versionData.versions.find(v => v.version_number === targetVersionNum)
           : versionData.versions.find(v => v.is_current);
 
