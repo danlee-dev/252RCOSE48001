@@ -160,9 +160,17 @@ export default function PresentationPage() {
       subtitle: "System Performance Analysis and Economic Efficiency",
       background: "bg-white",
     },
-    // Slide 14: Conclusion
+    // Slide 14: Pipeline Flow Diagram (Example Scenario)
     {
       id: 14,
+      type: "diagram",
+      title: "Analysis Pipeline Flow",
+      subtitle: "Step-by-Step Contract Analysis Example",
+      background: "bg-slate-900",
+    },
+    // Slide 15: Conclusion
+    {
+      id: 15,
       type: "title",
       background: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
     },
@@ -2149,7 +2157,203 @@ export default function PresentationPage() {
           </div>
         );
 
-      case 13: // Conclusion
+      case 13: // Pipeline Flow Diagram
+        return (
+          <div className="h-full py-2 px-4 text-white overflow-hidden flex items-start justify-center">
+            {/* Square Container */}
+            <div className="aspect-square h-[calc(100%-16px)] max-w-full flex flex-col">
+              {/* Header */}
+              <div className="text-center mb-3">
+                <p className="text-teal-400 font-semibold text-sm tracking-wide uppercase mb-1">
+                  {t("Example Scenario", "예시 시나리오")}
+                </p>
+                <h2 className="text-2xl font-bold">
+                  {t("Contract Analysis Pipeline", "계약서 분석 파이프라인")}
+                </h2>
+              </div>
+
+              {/* Main Flow */}
+              <div className="flex flex-col flex-1 min-h-0">
+              {/* Input Section */}
+              <div className="bg-slate-800/80 rounded-xl p-4 mb-3 border border-slate-700">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="px-2 py-1 bg-amber-500/30 text-amber-300 text-xs font-bold rounded">{t("INPUT", "입력")}</span>
+                  <span className="text-slate-400 text-sm">{t("Problematic Employment Contract", "문제있는 근로계약서")}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <p className="text-amber-400 text-xs font-bold mb-1">{t("Article 5 (Wages)", "제5조 (임금)")}</p>
+                    <p className="text-slate-300 text-xs">{t("Monthly 1.8M KRW", "월 180만원")}</p>
+                    <p className="text-slate-400 text-[10px]">{t("(48 hours/week)", "(주 48시간)")}</p>
+                  </div>
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <p className="text-amber-400 text-xs font-bold mb-1">{t("Article 8 (Resignation)", "제8조 (퇴직)")}</p>
+                    <p className="text-slate-300 text-xs">{t("Return 5M KRW training fee", "교육비 500만원 반환")}</p>
+                    <p className="text-slate-400 text-[10px]">{t("(within 1 year)", "(1년 이내)")}</p>
+                  </div>
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <p className="text-amber-400 text-xs font-bold mb-1">{t("Article 12 (Hours)", "제12조 (근로시간)")}</p>
+                    <p className="text-slate-300 text-xs">{t("\"Flexible\" work", "\"탄력적\" 근무")}</p>
+                    <p className="text-slate-400 text-[10px]">{t("(vague terms)", "(모호한 표현)")}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <div className="flex justify-center mb-2">
+                <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+
+              {/* 6-Stage Pipeline - 3x2 Grid */}
+              <div className="grid grid-cols-3 grid-rows-2 gap-3 mb-3 flex-1">
+                {/* Stage 1: ClauseAnalyzer */}
+                <div className="bg-gradient-to-b from-rose-600/90 to-rose-700/90 rounded-xl p-3 flex flex-col border border-rose-500/30">
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                    <span className="text-[10px] font-bold">ClauseAnalyzer</span>
+                  </div>
+                  <div className="text-[9px] text-rose-100 space-y-1 flex-1">
+                    <p className="flex items-start gap-1"><span className="text-rose-300">-</span> {t("Extract clauses", "조항 추출")}</p>
+                    <p className="flex items-start gap-1"><span className="text-rose-300">-</span> {t("Neuro-Symbolic calc", "신경기호 계산")}</p>
+                    <p className="flex items-start gap-1 text-white font-medium"><span className="text-rose-300">-</span> {t("1.8M/48h=8,630 KRW", "180만/48h=8,630원")}</p>
+                    <p className="flex items-start gap-1 text-white font-medium"><span className="text-rose-300">-</span> {t("< Min wage 9,860!", "최저임금 9,860 미달!")}</p>
+                  </div>
+                  <div className="mt-auto pt-2 border-t border-rose-500/30">
+                    <p className="text-[9px] text-rose-200 font-medium">{t("3 violations detected", "3건 위반 감지")}</p>
+                  </div>
+                </div>
+
+                {/* Stage 2: HyDE */}
+                <div className="bg-gradient-to-b from-blue-600/90 to-blue-700/90 rounded-xl p-3 flex flex-col border border-blue-500/30">
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                    <span className="text-[10px] font-bold">HyDE</span>
+                  </div>
+                  <div className="text-[9px] text-blue-100 space-y-1 flex-1">
+                    <p className="flex items-start gap-1"><span className="text-blue-300">-</span> {t("Short query fails", "짧은 쿼리 부정확")}</p>
+                    <p className="flex items-start gap-1"><span className="text-blue-300">-</span> {t("Generate virtual doc", "가상 문서 생성")}</p>
+                    <p className="flex items-start gap-1 text-white font-medium"><span className="text-blue-300">-</span> {t("\"Flexible hours = Art.51\"", "\"탄력근로 = 제51조\"")}</p>
+                  </div>
+                  <div className="mt-auto pt-2 border-t border-blue-500/30">
+                    <p className="text-[9px] text-blue-200 font-medium">{t("+40% retrieval acc.", "검색 정확도 +40%")}</p>
+                  </div>
+                </div>
+
+                {/* Stage 3: CRAG */}
+                <div className="bg-gradient-to-b from-purple-600/90 to-purple-700/90 rounded-xl p-3 flex flex-col border border-purple-500/30">
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
+                    <span className="text-[10px] font-bold">CRAG</span>
+                  </div>
+                  <div className="text-[9px] text-purple-100 space-y-1 flex-1">
+                    <p className="flex items-start gap-1"><span className="text-purple-300">-</span> {t("Evaluate relevance", "관련성 평가")}</p>
+                    <p className="flex items-start gap-1 text-green-300 font-medium"><span>-</span> Art.20 RELEVANT</p>
+                    <p className="flex items-start gap-1 text-red-300 font-medium"><span>-</span> Art.X NOT_REL</p>
+                    <p className="flex items-start gap-1"><span className="text-purple-300">-</span> {t("Rewrite query", "쿼리 재작성")}</p>
+                  </div>
+                  <div className="mt-auto pt-2 border-t border-purple-500/30">
+                    <p className="text-[9px] text-purple-200 font-medium">{t("Remove noise", "노이즈 제거")}</p>
+                  </div>
+                </div>
+
+                {/* Stage 4: RAPTOR */}
+                <div className="bg-gradient-to-b from-teal-600/90 to-teal-700/90 rounded-xl p-3 flex flex-col border border-teal-500/30">
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
+                    <span className="text-[10px] font-bold">RAPTOR</span>
+                  </div>
+                  <div className="text-[9px] text-teal-100 space-y-1 flex-1">
+                    <p className="flex items-start gap-1"><span className="text-teal-300">-</span> {t("Tree structure", "트리 구조")}</p>
+                    <p className="flex items-start gap-1"><span className="text-teal-300">-</span> {t("[Root] 3 violations", "[루트] 3건 위반")}</p>
+                    <p className="flex items-start gap-1"><span className="text-teal-300">-</span> {t("[Leaf] Details", "[리프] 세부정보")}</p>
+                  </div>
+                  <div className="mt-auto pt-2 border-t border-teal-500/30">
+                    <p className="text-[9px] text-teal-200 font-medium">{t("Adaptive depth", "적응적 깊이")}</p>
+                  </div>
+                </div>
+
+                {/* Stage 5: Constitutional AI */}
+                <div className="bg-gradient-to-b from-amber-600/90 to-amber-700/90 rounded-xl p-3 flex flex-col border border-amber-500/30">
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">5</span>
+                    <span className="text-[10px] font-bold">Constitutional</span>
+                  </div>
+                  <div className="text-[9px] text-amber-100 space-y-1 flex-1">
+                    <p className="flex items-start gap-1"><span className="text-amber-300">-</span> {t("6 labor principles", "6대 노동법 원칙")}</p>
+                    <p className="flex items-start gap-1"><span className="text-amber-300">-</span> {t("Critique + Revise", "비판 + 수정")}</p>
+                    <p className="flex items-start gap-1 text-white font-medium"><span className="text-amber-300">-</span> {t("Pro-worker bias", "근로자 보호 강화")}</p>
+                  </div>
+                  <div className="mt-auto pt-2 border-t border-amber-500/30">
+                    <p className="text-[9px] text-amber-200 font-medium">{t("Ethical check", "윤리 검증")}</p>
+                  </div>
+                </div>
+
+                {/* Stage 6: LLM-as-a-Judge */}
+                <div className="bg-gradient-to-b from-red-600/90 to-red-700/90 rounded-xl p-3 flex flex-col border border-red-500/30">
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">6</span>
+                    <span className="text-[10px] font-bold">LLM-Judge</span>
+                  </div>
+                  <div className="text-[9px] text-red-100 space-y-1 flex-1">
+                    <p className="flex items-start gap-1"><span className="text-red-300">-</span> {t("5 metrics", "5개 평가 지표")}</p>
+                    <p className="flex items-start gap-1"><span className="text-red-300">-</span> {t("Weighted scoring", "가중치 적용")}</p>
+                    <p className="flex items-start gap-1 text-white font-medium"><span className="text-red-300">-</span> {t("Fact check", "팩트 체크")}</p>
+                  </div>
+                  <div className="mt-auto pt-2 border-t border-red-500/30">
+                    <p className="text-[9px] text-red-200 font-medium">{t("84.5pt = HIGH", "84.5점 = HIGH")}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <div className="flex justify-center mb-2">
+                <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+
+              {/* Output Section */}
+              <div className="bg-gradient-to-r from-emerald-800/80 to-teal-800/80 rounded-xl p-4 border border-emerald-600/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-2 py-1 bg-emerald-500/30 text-emerald-300 text-xs font-bold rounded">{t("OUTPUT", "출력")}</span>
+                  <span className="text-emerald-200 text-sm font-medium">{t("Analysis Result - HIGH Risk", "분석 결과 - 고위험")}</span>
+                  <span className="ml-auto px-2 py-1 bg-emerald-500/30 text-emerald-300 text-xs rounded">{t("Confidence: 84.5pt", "신뢰도: 84.5점")}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-red-900/40 rounded-lg p-3 border border-red-500/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                      <p className="text-red-300 text-xs font-bold">{t("Art.5 Violation", "제5조 위반")}</p>
+                    </div>
+                    <p className="text-white text-xs">{t("Below minimum wage by 1,230 KRW/hr", "시급 1,230원 미달")}</p>
+                    <p className="text-slate-400 text-[10px]">{t("Fix: Raise to 2.06M/month", "수정: 월 206만원 이상")}</p>
+                  </div>
+                  <div className="bg-red-900/40 rounded-lg p-3 border border-red-500/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                      <p className="text-red-300 text-xs font-bold">{t("Art.8 Violation", "제8조 위반")}</p>
+                    </div>
+                    <p className="text-white text-xs">{t("Penalty clause void (Art.20)", "위약금 예정 무효 (제20조)")}</p>
+                    <p className="text-slate-400 text-[10px]">{t("Fix: Remove entire clause", "수정: 조항 전체 삭제")}</p>
+                  </div>
+                  <div className="bg-amber-900/40 rounded-lg p-3 border border-amber-500/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                      <p className="text-amber-300 text-xs font-bold">{t("Art.12 Unclear", "제12조 불명확")}</p>
+                    </div>
+                    <p className="text-white text-xs">{t("No written agreement for flex", "탄력근로 서면합의 없음")}</p>
+                    <p className="text-slate-400 text-[10px]">{t("Fix: Specify hours + agreement", "수정: 시간 명시 + 합의서")}</p>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 14: // Conclusion
         return (
           <div className="flex flex-col items-center justify-center h-full text-white px-8 relative overflow-hidden">
             {/* Background elements matching title slide */}
