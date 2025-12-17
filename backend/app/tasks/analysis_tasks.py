@@ -3,6 +3,7 @@ Contract Analysis Tasks (Multi-Format Support)
 - PDF, HWP, DOCX, TXT, 이미지 파일 분석 지원
 - Celery 비동기 작업 처리
 - Advanced AI Pipeline 또는 Dify API 연동
+- Cloudflare R2 스토리지 지원 (분산 환경)
 """
 
 import os
@@ -13,6 +14,7 @@ from sqlalchemy.future import select
 from app.core.database import AsyncSessionLocal
 from app.models.contract import Contract
 from app.core.celery_app import celery_app
+from app.core.r2_storage import r2_storage
 import requests
 
 # Worker 프로세스 내에서 app 모듈 경로를 찾도록 설정
@@ -26,6 +28,43 @@ from app.ai.preprocessor import ContractPreprocessor
 from app.ai.pipeline import AdvancedAIPipeline, PipelineConfig
 from app.ai.vision_parser import VisionParser
 from app.ai.document_parser import MultiFormatDocumentParser, DocumentType
+
+
+def resolve_file_path(file_url: str) -> tuple[str, str]:
+    """
+    file_url을 실제 파일 경로로 변환
+
+    Args:
+        file_url: DB에 저장된 파일 URL
+            - R2: "contracts/1/file.pdf"
+            - Local: "/storage/contracts/1/file.pdf"
+
+    Returns:
+        tuple(file_path, temp_file_path or None)
+        - temp_file_path가 있으면 작업 완료 후 삭제 필요
+    """
+    # R2 object key인 경우 (분산 환경)
+    if file_url.startswith("contracts/") and r2_storage.enabled:
+        temp_path = r2_storage.download_to_temp_file(file_url)
+        if temp_path:
+            return temp_path, temp_path  # 두 번째 값이 있으면 삭제 대상
+        else:
+            raise Exception(f"R2에서 파일 다운로드 실패: {file_url}")
+
+    # 로컬 파일 경로인 경우
+    relative_path = file_url.lstrip("/")
+    file_path = backend_dir / relative_path
+    return str(file_path), None
+
+
+def cleanup_temp_file(temp_path: str):
+    """임시 파일 삭제"""
+    if temp_path and os.path.exists(temp_path):
+        try:
+            os.unlink(temp_path)
+            print(f"[Cleanup] Deleted temp file: {temp_path}")
+        except Exception as e:
+            print(f"[Cleanup] Failed to delete temp file: {e}")
 
 
 def get_file_extension(file_url: str) -> str:
@@ -119,16 +158,17 @@ def analyze_contract_task(contract_id: int, use_advanced_pipeline: bool = True):
             contract.status = "PROCESSING"
             await db.commit()
 
+            temp_file = None
             try:
-                # 파일 경로 및 확장자 확인
-                relative_path = contract.file_url.lstrip("/")
-                file_path = backend_dir / relative_path
+                # 파일 경로 해결 (R2 또는 로컬)
+                file_path, temp_file = resolve_file_path(contract.file_url)
                 extension = get_file_extension(contract.file_url)
 
                 print(f"[{contract_id}] File type: {extension}")
+                print(f"[{contract_id}] File path: {file_path}")
 
                 # 텍스트 추출 (형식별 분기 처리)
-                full_text = extract_text_from_file(str(file_path), extension)
+                full_text = extract_text_from_file(file_path, extension)
 
                 if not full_text or len(full_text.strip()) < 10:
                     raise Exception(f"텍스트 추출 실패: 내용이 너무 적습니다 ({len(full_text) if full_text else 0}자)")
@@ -211,6 +251,10 @@ def analyze_contract_task(contract_id: int, use_advanced_pipeline: bool = True):
                 print(f"[{contract_id}] Error: {e}")
                 await db.commit()
 
+            finally:
+                # 임시 파일 정리 (R2에서 다운로드한 경우)
+                cleanup_temp_file(temp_file)
+
     # Windows 환경 호환성 코드
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -244,16 +288,16 @@ def analyze_contract_quick_task(contract_id: int):
             contract.status = "PROCESSING"
             await db.commit()
 
+            temp_file = None
             try:
-                # 파일 경로 및 확장자 확인
-                relative_path = contract.file_url.lstrip("/")
-                file_path = backend_dir / relative_path
+                # 파일 경로 해결 (R2 또는 로컬)
+                file_path, temp_file = resolve_file_path(contract.file_url)
                 extension = get_file_extension(contract.file_url)
 
                 print(f"[{contract_id}] File type: {extension}")
 
                 # 텍스트 추출
-                full_text = extract_text_from_file(str(file_path), extension)
+                full_text = extract_text_from_file(file_path, extension)
 
                 if not full_text or len(full_text.strip()) < 10:
                     raise Exception("텍스트 추출 실패")
@@ -294,6 +338,9 @@ def analyze_contract_quick_task(contract_id: int):
                 print(f"[{contract_id}] Error: {e}")
                 await db.commit()
 
+            finally:
+                cleanup_temp_file(temp_file)
+
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -324,9 +371,10 @@ def analyze_image_contract_task(contract_id: int):
             contract.status = "PROCESSING"
             await db.commit()
 
+            temp_file = None
             try:
-                relative_path = contract.file_url.lstrip("/")
-                file_path = backend_dir / relative_path
+                # 파일 경로 해결 (R2 또는 로컬)
+                file_path, temp_file = resolve_file_path(contract.file_url)
                 extension = get_file_extension(contract.file_url)
 
                 if not is_image_file(extension):
@@ -334,7 +382,7 @@ def analyze_image_contract_task(contract_id: int):
 
                 # Vision API로 구조화된 파싱
                 vision_parser = VisionParser()
-                parse_result = vision_parser.parse_image(str(file_path), extract_tables=True)
+                parse_result = vision_parser.parse_image(file_path, extract_tables=True)
 
                 full_text = parse_result.raw_text
                 structured_markdown = parse_result.structured_markdown
@@ -388,6 +436,9 @@ def analyze_image_contract_task(contract_id: int):
                 contract.analysis_result = {"error": str(e)}
                 print(f"[{contract_id}] Error: {e}")
                 await db.commit()
+
+            finally:
+                cleanup_temp_file(temp_file)
 
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

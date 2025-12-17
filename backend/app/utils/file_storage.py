@@ -3,6 +3,7 @@ Multi-Format File Storage (Production-Grade)
 - PDF, HWP, DOCX, TXT, 이미지 파일 저장 지원
 - 파일 형식 검증 및 보안 체크
 - UUID 기반 파일명 생성
+- Cloudflare R2 Object Storage 지원 (분산 환경)
 """
 
 import os
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Set, Tuple, Optional
 from fastapi import UploadFile, HTTPException
 from app.core.config import settings
+from app.core.r2_storage import r2_storage, get_r2_object_key
 
 
 # 파일 저장 경로 설정
@@ -192,14 +194,20 @@ async def validate_upload_file(file: UploadFile) -> Tuple[str, str, bytes]:
 
 async def save_contract_file(user_id: int, file: UploadFile) -> str:
     """
-    업로드된 파일을 로컬 저장소에 저장하고 파일 URL을 반환합니다.
+    업로드된 파일을 저장하고 파일 URL을 반환합니다.
+
+    저장 위치:
+    - R2 설정됨: Cloudflare R2 Object Storage (분산 환경 지원)
+    - R2 미설정: 로컬 파일시스템 (개발/단일 서버 환경)
 
     지원 형식:
     - 문서: PDF, HWP, HWPX, DOCX, DOC, TXT, RTF, MD
     - 이미지: PNG, JPG, JPEG, GIF, WEBP, BMP, TIFF
 
     Returns:
-        파일 URL (예: /storage/contracts/1/abc123.pdf)
+        파일 URL
+        - R2: "contracts/1/abc123.pdf" (R2 object key)
+        - Local: "/storage/contracts/1/abc123.pdf"
 
     Raises:
         HTTPException: 파일 검증 실패 또는 저장 오류 시
@@ -207,45 +215,61 @@ async def save_contract_file(user_id: int, file: UploadFile) -> str:
     # 파일 검증
     extension, mime_type, contents = await validate_upload_file(file)
 
-    # 사용자별 폴더 생성
-    user_storage_path = STORAGE_DIR / str(user_id)
-    if not user_storage_path.exists():
-        user_storage_path.mkdir(parents=True, exist_ok=True)
-
     # UUID 기반 안전한 파일명 생성
     original_name = sanitize_filename(Path(file.filename).stem)
     unique_id = uuid.uuid4().hex[:8]
     safe_filename = f"{original_name}_{unique_id}{extension}"
 
+    # R2가 설정되어 있으면 R2에 업로드
+    if r2_storage.enabled:
+        object_key = get_r2_object_key(user_id, safe_filename)
+        result = r2_storage.upload_file(
+            file_content=contents,
+            object_key=object_key,
+            content_type=mime_type or "application/octet-stream"
+        )
+        if result:
+            return object_key  # R2 object key 반환
+        else:
+            raise HTTPException(status_code=500, detail="R2 스토리지 업로드 실패")
+
+    # R2 미설정: 로컬 저장
+    user_storage_path = STORAGE_DIR / str(user_id)
+    if not user_storage_path.exists():
+        user_storage_path.mkdir(parents=True, exist_ok=True)
+
     file_path = user_storage_path / safe_filename
 
-    # 파일 저장
     try:
         with open(file_path, "wb") as f:
             f.write(contents)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"파일 저장 중 오류 발생: {str(e)}")
 
-    # 클라이언트가 접근할 수 있는 URL 반환
     return f"/storage/contracts/{user_id}/{safe_filename}"
 
 
 def delete_contract_file(file_url: str):
     """
     저장된 파일을 삭제합니다.
-    file_url: "/storage/contracts/1/contract.pdf" 형태
+
+    file_url 형식:
+    - R2: "contracts/1/contract.pdf"
+    - Local: "/storage/contracts/1/contract.pdf"
     """
     if not file_url:
         return
 
-    # 1. 상대 경로 파싱
-    relative_path = file_url.lstrip("/")
+    # R2 object key 형식인 경우
+    if file_url.startswith("contracts/") and r2_storage.enabled:
+        r2_storage.delete_file(file_url)
+        return
 
-    # 2. backend 루트 기준 경로 찾기
+    # 로컬 파일 삭제
+    relative_path = file_url.lstrip("/")
     backend_root = Path(__file__).parent.parent.parent
     file_path = backend_root / relative_path
 
-    # 3. 파일 삭제
     if file_path.exists():
         try:
             os.remove(file_path)
