@@ -162,7 +162,7 @@ const MOCK_CHECKLIST_CATEGORIES = [
 function ImportanceBadge({ importance }: { importance: string }) {
   if (importance === "high") {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-red-50 text-red-600 rounded-full whitespace-nowrap flex-shrink-0">
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-[#fdedec] text-[#b54a45] border border-[#f5c6c4] rounded-full whitespace-nowrap flex-shrink-0">
         <IconWarning size={11} />
         필수
       </span>
@@ -170,7 +170,7 @@ function ImportanceBadge({ importance }: { importance: string }) {
   }
   if (importance === "medium") {
     return (
-      <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold bg-amber-50 text-amber-600 rounded-full whitespace-nowrap flex-shrink-0">
+      <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold bg-[#fef7e0] text-[#9a7b2d] border border-[#f5e6b8] rounded-full whitespace-nowrap flex-shrink-0">
         중요
       </span>
     );
@@ -198,7 +198,7 @@ function CircularProgress({ progress, size = 40 }: { progress: number; size?: nu
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-gray-100"
+          className="text-[#e8f0ea]"
         />
         <circle
           cx={size / 2}
@@ -212,13 +212,13 @@ function CircularProgress({ progress, size = 40 }: { progress: number; size?: nu
           strokeLinecap="round"
           className={cn(
             "transition-all duration-500 ease-out",
-            progress === 100 ? "text-green-500" : "text-gray-900"
+            progress === 100 ? "text-[#4a9a5b]" : "text-[#3d5a47]"
           )}
         />
       </svg>
       {progress === 100 && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <IconCheck size={14} className="text-green-500" />
+          <IconCheck size={14} className="text-[#4a9a5b]" />
         </div>
       )}
     </div>
@@ -273,18 +273,41 @@ export default function ChecklistPage() {
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
   return (
-    <div className="min-h-[100dvh] bg-[#f2f1ee]">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200/80 sticky top-0 z-10">
+    <div className="min-h-[100dvh] relative">
+      {/* Base Background */}
+      <div className="fixed inset-0 bg-[#f8f9fa]" />
+
+      {/* Gradient Overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse 80% 60% at 5% 15%, rgba(220, 235, 224, 0.95) 0%, transparent 55%),
+            radial-gradient(ellipse 60% 50% at 95% 85%, rgba(254, 243, 210, 0.7) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 40% at 60% 5%, rgba(220, 240, 226, 0.8) 0%, transparent 45%)
+          `
+        }}
+      />
+
+      {/* Grain Texture - Finer grain */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-20"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+        }}
+      />
+
+      {/* Header - Fully Transparent */}
+      <header className="sticky top-0 z-10">
         <div className="px-4 sm:px-5 h-14 flex items-center gap-3 max-w-2xl mx-auto">
           <Link
             href="/"
-            className="w-10 h-10 flex items-center justify-center -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+            className="w-10 h-10 flex items-center justify-center -ml-2 text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-xl transition-all duration-200"
           >
             <IconArrowLeft size={18} />
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-gray-900 tracking-tight">
+            <h1 className="text-lg font-semibold text-gray-900 tracking-tight">
               고용계약 체크리스트
             </h1>
           </div>
@@ -298,42 +321,40 @@ export default function ChecklistPage() {
       </header>
 
       {/* Progress Summary */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="px-4 sm:px-5 py-4 max-w-2xl mx-auto">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500 ease-out",
-                    progress === 100
-                      ? "bg-green-500"
-                      : "bg-gradient-to-r from-gray-800 to-gray-600"
-                  )}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+      <div className="px-4 sm:px-5 py-3 max-w-2xl mx-auto relative z-[1]">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <div className="h-2 bg-[#3d5a47]/10 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500 ease-out",
+                  progress === 100
+                    ? "bg-[#4a9a5b]"
+                    : "bg-gradient-to-r from-[#3d5a47] to-[#4a6b52]"
+                )}
+                style={{ width: `${progress}%` }}
+              />
             </div>
-            <span className={cn(
-              "text-sm font-semibold tabular-nums transition-colors",
-              progress === 100 ? "text-green-600" : "text-gray-900"
-            )}>
-              {Math.round(progress)}%
-            </span>
           </div>
-          {progress === 100 && (
-            <div className="mt-3 flex items-center gap-2 text-green-600 animate-fadeIn">
-              <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
-                <IconCheck size={12} />
-              </div>
-              <p className="text-sm font-medium">모든 항목을 확인했습니다</p>
-            </div>
-          )}
+          <span className={cn(
+            "text-sm font-semibold tabular-nums transition-colors",
+            progress === 100 ? "text-[#4a9a5b]" : "text-[#3d5a47]"
+          )}>
+            {Math.round(progress)}%
+          </span>
         </div>
+        {progress === 100 && (
+          <div className="mt-2 flex items-center gap-2 text-[#4a9a5b] animate-fadeIn">
+            <div className="w-5 h-5 bg-[#e8f5ec] rounded-full flex items-center justify-center">
+              <IconCheck size={12} />
+            </div>
+            <p className="text-sm font-medium">모든 항목을 확인했습니다</p>
+          </div>
+        )}
       </div>
 
       {/* Checklist */}
-      <main className="px-4 sm:px-5 py-5 sm:py-6 max-w-2xl mx-auto">
+      <main className="px-4 sm:px-5 py-5 sm:py-6 max-w-2xl mx-auto relative z-[1]">
         <div className="space-y-5">
           {MOCK_CHECKLIST_CATEGORIES.map((category, categoryIndex) => {
             const categoryCheckedCount = category.items.filter((item) =>
@@ -352,11 +373,11 @@ export default function ChecklistPage() {
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-3">
                     <div className={cn(
-                      "w-8 h-8 rounded-xl flex items-center justify-center transition-colors duration-300",
-                      isCategoryComplete ? "bg-green-100" : "bg-gray-100"
+                      "w-8 h-8 rounded-[12px] flex items-center justify-center transition-colors duration-300",
+                      isCategoryComplete ? "bg-[#e8f5ec]" : "bg-white/60"
                     )}>
                       {isCategoryComplete ? (
-                        <IconCheck size={16} className="text-green-600" />
+                        <IconCheck size={16} className="text-[#4a9a5b]" />
                       ) : (
                         <span className="text-xs font-bold text-gray-400">
                           {categoryIndex + 1}
@@ -364,24 +385,24 @@ export default function ChecklistPage() {
                       )}
                     </div>
                     <div>
-                      <h2 className="text-sm font-semibold text-gray-900 tracking-tight">
+                      <h2 className="text-base font-semibold text-gray-900 tracking-tight">
                         {category.title}
                       </h2>
-                      <p className="text-xs text-gray-500">{category.description}</p>
+                      <p className="text-sm text-gray-500">{category.description}</p>
                     </div>
                   </div>
                   <div className={cn(
-                    "text-xs font-medium px-2.5 py-1 rounded-full transition-colors",
+                    "text-sm font-medium px-3 py-1.5 rounded-full transition-colors border",
                     isCategoryComplete
-                      ? "bg-green-50 text-green-600"
-                      : "bg-gray-100 text-gray-500"
+                      ? "bg-[#e8f5ec] text-[#3d7a4a] border-[#c8e6cf]"
+                      : "bg-white/60 text-gray-500 border-white/40"
                   )}>
                     {categoryCheckedCount}/{category.items.length}
                   </div>
                 </div>
 
                 {/* Items */}
-                <div className="card-apple overflow-hidden">
+                <div className="bg-white/70 backdrop-blur-sm rounded-[16px] overflow-hidden border border-white/40 shadow-sm">
                   {category.items.map((item, itemIndex) => {
                     const isChecked = checkedItems.has(item.id);
                     const isTipExpanded = expandedTips.has(item.id);
@@ -392,15 +413,15 @@ export default function ChecklistPage() {
                         key={item.id}
                         className={cn(
                           "transition-colors duration-200",
-                          itemIndex !== 0 && "border-t border-gray-100",
-                          isChecked && "bg-green-50/30"
+                          itemIndex !== 0 && "border-t border-gray-100/50",
+                          isChecked && "bg-[#e8f5ec]/30"
                         )}
                       >
                         <div
                           onClick={() => toggleItem(item.id)}
                           className={cn(
                             "flex items-start gap-3 p-4 cursor-pointer group",
-                            "hover:bg-gray-50/50 active:bg-gray-100/50 transition-colors"
+                            "hover:bg-white/50 active:bg-white/70 transition-colors"
                           )}
                         >
                           {/* Checkbox */}
@@ -408,8 +429,8 @@ export default function ChecklistPage() {
                             className={cn(
                               "flex-shrink-0 w-6 h-6 rounded-[8px] border-2 flex items-center justify-center transition-all duration-200 mt-0.5",
                               isChecked
-                                ? "bg-green-500 border-green-500 text-white"
-                                : "border-gray-300 group-hover:border-gray-400",
+                                ? "bg-[#4a9a5b] border-[#4a9a5b] text-white"
+                                : "border-gray-300 group-hover:border-[#3d5a47]",
                               isJustChecked && "scale-110"
                             )}
                           >
@@ -427,7 +448,7 @@ export default function ChecklistPage() {
                             <div className="flex items-start gap-3">
                               <p
                                 className={cn(
-                                  "text-sm tracking-tight leading-relaxed transition-all duration-200 flex-1",
+                                  "text-base tracking-tight leading-relaxed transition-all duration-200 flex-1",
                                   isChecked
                                     ? "text-gray-400 line-through"
                                     : "text-gray-800"
@@ -445,10 +466,10 @@ export default function ChecklistPage() {
                           <button
                             onClick={(e) => toggleTip(item.id, e)}
                             className={cn(
-                              "flex items-center gap-1.5 text-xs font-medium transition-colors ml-9",
+                              "flex items-center gap-1.5 text-sm font-medium transition-colors ml-9",
                               isTipExpanded
-                                ? "text-blue-600"
-                                : "text-gray-400 hover:text-gray-600"
+                                ? "text-[#3d5a47]"
+                                : "text-gray-400 hover:text-[#3d5a47]"
                             )}
                           >
                             <IconInfo size={13} />
@@ -469,8 +490,8 @@ export default function ChecklistPage() {
                               isTipExpanded ? "max-h-40 opacity-100 mt-2" : "max-h-0 opacity-0"
                             )}
                           >
-                            <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-100/50">
-                              <p className="text-xs text-blue-700 leading-relaxed">
+                            <div className="p-3 bg-[#e8f0ea]/70 rounded-[12px] border border-[#c8e6cf]/50">
+                              <p className="text-sm text-[#3d5a47] leading-relaxed">
                                 {item.tip}
                               </p>
                             </div>
@@ -487,9 +508,9 @@ export default function ChecklistPage() {
 
         {/* Bottom Actions */}
         <div className="mt-8 pb-6">
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-[18px] p-5 text-white shadow-lg">
+          <div className="bg-gradient-to-br from-[#3d5a47] to-[#4a6b52] rounded-[18px] p-5 text-white shadow-lg">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-[14px] flex items-center justify-center flex-shrink-0">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14,2 14,8 20,8" />
@@ -497,15 +518,15 @@ export default function ChecklistPage() {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-base font-semibold tracking-tight">
+                <h3 className="text-lg font-semibold tracking-tight">
                   계약서 분석이 필요하신가요?
                 </h3>
-                <p className="text-sm text-gray-300 mt-1 mb-4 leading-relaxed">
+                <p className="text-base text-white/70 mt-1 mb-4 leading-relaxed">
                   AI가 계약서의 위험 조항을 자동으로 분석해드립니다
                 </p>
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-gray-900 text-sm font-semibold rounded-xl hover:bg-gray-100 active:scale-[0.98] transition-all duration-200 min-h-[44px]"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-[#3d5a47] text-sm font-semibold rounded-[12px] hover:bg-white/90 active:scale-[0.98] transition-all duration-200 min-h-[44px]"
                 >
                   계약서 분석하기
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

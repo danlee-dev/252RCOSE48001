@@ -83,6 +83,7 @@ export default function ScanPage() {
   const [showExcuses, setShowExcuses] = useState(false);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
 
   // Auth check
   useEffect(() => {
@@ -247,17 +248,17 @@ export default function ScanPage() {
       if (clause.bbox) {
         const { x, y, width, height } = clause.bbox;
 
-        // Draw warning box
-        ctx.strokeStyle = clause.risk_level === "HIGH" ? "#ef4444" : "#f59e0b";
+        // Draw warning box with system colors
+        ctx.strokeStyle = clause.risk_level === "HIGH" ? "#b54a45" : "#9a7b2d";
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(x, y, width, height);
 
-        // Draw warning icon area
+        // Draw warning icon area with system colors
         ctx.fillStyle =
           clause.risk_level === "HIGH"
-            ? "rgba(239, 68, 68, 0.3)"
-            : "rgba(245, 158, 11, 0.3)";
+            ? "rgba(181, 74, 69, 0.3)"
+            : "rgba(154, 123, 45, 0.3)";
         ctx.fillRect(x, y, width, height);
       }
     });
@@ -281,28 +282,28 @@ export default function ScanPage() {
     switch (level) {
       case "HIGH":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#fdedec] text-[#b54a45] border border-[#f5c6c4]">
             <IconDanger size={12} />
             위험
           </span>
         );
       case "MEDIUM":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#fef7e0] text-[#9a7b2d] border border-[#f5e6b8]">
             <IconWarning size={12} />
             주의
           </span>
         );
       case "LOW":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#e8f0ea] text-[#3d5a47] border border-[#c8e6cf]">
             <IconShield size={12} />
             낮음
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#e8f5ec] text-[#3d7a4a] border border-[#c8e6cf]">
             <IconShield size={12} />
             안전
           </span>
@@ -462,7 +463,7 @@ export default function ScanPage() {
 
           {/* Scan line animation */}
           {isScanning && (
-            <div className="absolute left-8 right-8 sm:left-16 sm:right-16 md:left-24 md:right-24 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-scan-line" />
+            <div className="absolute left-8 right-8 sm:left-16 sm:right-16 md:left-24 md:right-24 h-0.5 bg-gradient-to-r from-transparent via-[#4a9a5b] to-transparent animate-scan-line" />
           )}
         </div>
       )}
@@ -470,10 +471,10 @@ export default function ScanPage() {
       {/* Tips Banner */}
       {showTips && !scanResult && (
         <div className="absolute bottom-32 sm:bottom-36 left-4 right-4 z-20">
-          <div className="bg-black/60 backdrop-blur-sm rounded-xl px-4 py-3 max-w-md mx-auto">
+          <div className="bg-black/60 backdrop-blur-sm rounded-[14px] px-4 py-3 max-w-md mx-auto">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <IconLightbulb size={16} className="text-cyan-400" />
+              <div className="w-8 h-8 bg-[#3d5a47]/30 rounded-[8px] flex items-center justify-center flex-shrink-0">
+                <IconLightbulb size={16} className="text-[#4a9a5b]" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-400 mb-0.5">Quick Tip</p>
@@ -489,22 +490,47 @@ export default function ScanPage() {
       {/* Scan Result Panel */}
       {scanResult && (
         <div className="absolute bottom-0 left-0 right-0 z-30 animate-slideUp pb-[env(safe-area-inset-bottom)]">
-          <div className="bg-white rounded-t-3xl shadow-2xl max-h-[70vh] sm:max-h-[60vh] overflow-y-auto">
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2 sticky top-0 bg-white">
-              <div className="w-10 h-1 bg-gray-300 rounded-full" />
-            </div>
+          {/* Outer wrapper for rounded corners */}
+          <div className="w-full rounded-t-[24px] shadow-2xl overflow-hidden bg-[#f8f9fa]">
+            <div
+              className={cn(
+                "w-full overflow-y-auto scrollbar-hide transition-all duration-300 ease-out",
+                isBottomSheetExpanded ? "max-h-[90vh]" : "max-h-[40vh]"
+              )}
+              style={{
+                background: `
+                  linear-gradient(to bottom, #f8f9fa, #f8f9fa),
+                  radial-gradient(ellipse 80% 60% at 5% 15%, rgba(220, 235, 224, 0.95) 0%, transparent 55%),
+                  radial-gradient(ellipse 60% 50% at 95% 85%, rgba(254, 243, 210, 0.7) 0%, transparent 55%),
+                  radial-gradient(ellipse 50% 40% at 60% 5%, rgba(220, 240, 226, 0.8) 0%, transparent 45%)
+                `,
+                backgroundAttachment: 'local'
+              }}
+            >
+            {/* Sticky Header (Handle + Title) - Clickable to expand/collapse */}
+            <div
+              className="sticky top-0 z-10 bg-[#f8f9fa]/95 backdrop-blur-sm rounded-t-[24px] border-b border-[#3d5a47]/10 cursor-pointer active:bg-[#f0f2f0]/95 transition-colors"
+              onClick={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+            >
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className={cn(
+                  "w-10 h-1 bg-[#3d5a47]/30 rounded-full transition-transform duration-300",
+                  isBottomSheetExpanded && "scale-x-150"
+                )} />
+              </div>
 
-            {/* Header */}
-            <div className="px-4 sm:px-5 pb-4 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 tracking-tight">스캔 결과</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {(scanResult.scan_time_ms / 1000).toFixed(1)}초 소요
-                  </p>
+              {/* Header */}
+              <div className="px-4 sm:px-5 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 tracking-tight">스캔 결과</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {(scanResult.scan_time_ms / 1000).toFixed(1)}초 소요 {!isBottomSheetExpanded && "- 탭하여 확장"}
+                    </p>
+                  </div>
+                  {getRiskBadge(scanResult.risk_level)}
                 </div>
-                {getRiskBadge(scanResult.risk_level)}
               </div>
             </div>
 
@@ -517,34 +543,54 @@ export default function ScanPage() {
                   {scanResult.detected_clauses.map((clause, index) => (
                     <div
                       key={index}
-                      className={cn(
-                        "p-3 sm:p-4 rounded-xl border-l-4",
-                        clause.risk_level === "HIGH"
-                          ? "bg-red-50 border-red-500"
-                          : clause.risk_level === "MEDIUM"
-                          ? "bg-amber-50 border-amber-500"
-                          : "bg-blue-50 border-blue-500"
-                      )}
+                      className="bg-white/80 backdrop-blur-sm rounded-[14px] border border-gray-100 shadow-sm p-4"
                     >
-                      <div className="flex items-start justify-between gap-2 sm:gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center",
+                          clause.risk_level === "HIGH"
+                            ? "bg-[#fdedec]"
+                            : clause.risk_level === "MEDIUM"
+                            ? "bg-[#fef7e0]"
+                            : "bg-[#e8f5ec]"
+                        )}>
+                          {clause.risk_level === "HIGH" ? (
+                            <IconDanger size={16} className="text-[#c94b45]" />
+                          ) : clause.risk_level === "MEDIUM" ? (
+                            <IconWarning size={16} className="text-[#d4a84d]" />
+                          ) : (
+                            <IconShield size={16} className="text-[#4a9a5b]" />
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 tracking-tight">{clause.text}</p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={cn(
+                              "text-xs font-semibold uppercase tracking-wider",
+                              clause.risk_level === "HIGH"
+                                ? "text-[#b54a45]"
+                                : clause.risk_level === "MEDIUM"
+                                ? "text-[#9a7b2d]"
+                                : "text-[#3d7a4a]"
+                            )}>
+                              {clause.risk_level === "HIGH" ? "HIGH" : clause.risk_level === "MEDIUM" ? "MEDIUM" : "LOW"}
+                            </span>
+                          </div>
+                          <p className="text-base text-gray-800 leading-relaxed">{clause.text}</p>
+                          <p className="text-xs text-gray-400 mt-2">
                             키워드: {clause.keyword}
                           </p>
                         </div>
-                        {getRiskBadge(clause.risk_level)}
                       </div>
                     </div>
                   ))}
 
-                  <div className="pt-4 border-t border-gray-100 mt-4">
+                  <div className="pt-4 border-t border-[#3d5a47]/10 mt-4">
                     <p className="text-xs text-gray-500 text-center mb-3">
                       정밀 분석이 필요하신가요?
                     </p>
                     <Link
                       href="/"
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 active:scale-[0.98] transition-all min-h-[48px]"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-[#3d5a47] to-[#4a6b52] text-white rounded-[12px] text-sm font-medium hover:from-[#4a6b52] hover:to-[#5a7b62] active:scale-[0.98] transition-all min-h-[48px]"
                     >
                       <IconScan size={16} />
                       정밀 분석 시작하기
@@ -553,8 +599,8 @@ export default function ScanPage() {
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <IconShield size={32} className="text-green-600" />
+                  <div className="w-16 h-16 bg-[#e8f0ea] rounded-[16px] flex items-center justify-center mx-auto mb-4">
+                    <IconShield size={32} className="text-[#4a9a5b]" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-1 tracking-tight">
                     위험 조항이 발견되지 않았습니다
@@ -570,10 +616,11 @@ export default function ScanPage() {
             <div className="p-4 sm:p-5 pt-0">
               <button
                 onClick={resetScan}
-                className="w-full py-3.5 text-gray-600 text-sm font-medium hover:text-gray-900 active:bg-gray-100 rounded-xl transition-all min-h-[48px]"
+                className="w-full py-3.5 text-[#3d5a47] text-sm font-medium hover:text-[#4a6b52] active:bg-[#e8f0ea]/50 rounded-[12px] transition-all min-h-[48px]"
               >
                 다시 스캔하기
               </button>
+            </div>
             </div>
           </div>
         </div>
@@ -590,7 +637,7 @@ export default function ScanPage() {
               className={cn(
                 "w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all shadow-lg",
                 isScanning
-                  ? "bg-cyan-500 animate-pulse"
+                  ? "bg-[#4a9a5b] animate-pulse"
                   : "bg-white hover:bg-gray-100 active:scale-95"
               )}
             >
