@@ -21,6 +21,7 @@ import numpy as np
 from collections import OrderedDict
 import json
 
+from app.core.config import settings
 from app.core.token_usage_tracker import record_llm_usage
 
 
@@ -307,7 +308,7 @@ class HyDEGenerator:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o-mini",
+        model: str = None,
         temperature: float = 0.3,
         embedding_model: Optional[Any] = None,
         strategy: HyDEStrategy = HyDEStrategy.ADAPTIVE,
@@ -319,8 +320,8 @@ class HyDEGenerator:
     ):
         """
         Args:
-            llm_client: OpenAI 클라이언트
-            model: LLM 모델명
+            llm_client: OpenAI 클라이언트 (legacy, Gemini 사용 시 무시됨)
+            model: LLM 모델명 (기본값: settings.LLM_HYDE_MODEL)
             temperature: 생성 온도
             embedding_model: 임베딩 모델 (sentence-transformers)
             strategy: HyDE 생성 전략
@@ -330,12 +331,13 @@ class HyDEGenerator:
             cache_ttl: 캐시 TTL (초)
             contract_id: 계약서 ID (토큰 추적용)
         """
-        self.model = model
+        self.model = model if model else settings.LLM_HYDE_MODEL
         self.temperature = temperature
         self.strategy = strategy
         self.num_documents = num_documents
         self.enable_cache = enable_cache
         self.contract_id = contract_id
+        self.llm_client = llm_client  # OpenAI fallback
 
         # 캐시 초기화
         if enable_cache:
@@ -343,15 +345,33 @@ class HyDEGenerator:
         else:
             self._cache = None
 
-        # LLM 클라이언트 초기화
-        if llm_client is None:
+        # Gemini safety settings (완전 완화 - 계약서 분석은 합법적 용도)
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+
+        # Gemini 클라이언트 초기화 (우선 사용)
+        self._gemini_model = None
+        if "gemini" in self.model.lower():
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                self._gemini_model = genai.GenerativeModel(self.model)
+            except ImportError:
+                print("google-generativeai package not installed, falling back to OpenAI")
+            except Exception as e:
+                print(f"Gemini initialization error: {e}")
+
+        # OpenAI fallback
+        if self._gemini_model is None and self.llm_client is None:
             try:
                 from openai import OpenAI
                 self.llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             except ImportError:
                 self.llm_client = None
-        else:
-            self.llm_client = llm_client
 
         # 임베딩 모델 초기화
         if embedding_model is None:
@@ -592,52 +612,93 @@ class HyDEGenerator:
 
     def _call_llm(self, prompt: str, temperature: float = None) -> str:
         """LLM 호출"""
-        if self.llm_client is None:
+        if self._gemini_model is None and self.llm_client is None:
             return self._fallback_expansion(prompt)
 
         llm_start = time.time()
         try:
-            # reasoning 모델은 temperature 미지원, system message도 user로 통합
-            if self._is_reasoning_model():
-                response = self.llm_client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "user", "content": f"당신은 대한민국 노동법 전문가입니다. 정확하고 상세한 법률 정보를 제공합니다.\n\n{prompt}"}
-                    ],
-                    max_completion_tokens=1500
+            # Gemini 사용 (우선)
+            if self._gemini_model is not None:
+                full_prompt = "당신은 대한민국 노동법 전문가입니다. 정확하고 상세한 법률 정보를 제공합니다.\n\n" + prompt
+                result = self._gemini_model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": temperature or self.temperature,
+                        "max_output_tokens": 1500
+                    },
+                    safety_settings=self.safety_settings
                 )
+                llm_duration = (time.time() - llm_start) * 1000
+
+                # 토큰 사용량 기록
+                if self.contract_id and hasattr(result, 'usage_metadata'):
+                    usage = result.usage_metadata
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="hyde.generate",
+                        model=self.model,
+                        input_tokens=getattr(usage, 'prompt_token_count', 0),
+                        output_tokens=getattr(usage, 'candidates_token_count', 0),
+                        cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                        duration_ms=llm_duration
+                    )
+
+                # 응답 안전하게 추출 (SAFETY 차단 대응)
+                if result.candidates and len(result.candidates) > 0:
+                    candidate = result.candidates[0]
+                    if candidate.content and candidate.content.parts:
+                        return candidate.content.parts[0].text
+
+                # 차단된 경우 OpenAI fallback 시도
+                if self.llm_client is not None:
+                    print(f">>> [HyDE] Gemini blocked, falling back to OpenAI")
+                    return self._call_llm_openai(prompt, temperature)
+
+                return self._fallback_expansion(prompt)
+
+            # OpenAI fallback
             else:
-                response = self.llm_client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "당신은 대한민국 노동법 전문가입니다. 정확하고 상세한 법률 정보를 제공합니다."
-                        },
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=temperature or self.temperature,
-                    max_completion_tokens=1500
-                )
+                # reasoning 모델은 temperature 미지원, system message도 user로 통합
+                if self._is_reasoning_model():
+                    response = self.llm_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "user", "content": f"당신은 대한민국 노동법 전문가입니다. 정확하고 상세한 법률 정보를 제공합니다.\n\n{prompt}"}
+                        ],
+                        max_completion_tokens=1500
+                    )
+                else:
+                    response = self.llm_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "당신은 대한민국 노동법 전문가입니다. 정확하고 상세한 법률 정보를 제공합니다."
+                            },
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=temperature or self.temperature,
+                        max_completion_tokens=1500
+                    )
 
-            llm_duration = (time.time() - llm_start) * 1000
+                llm_duration = (time.time() - llm_start) * 1000
 
-            # 토큰 사용량 기록
-            if response.usage and self.contract_id:
-                cached = 0
-                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
-                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
-                record_llm_usage(
-                    contract_id=self.contract_id,
-                    module="hyde.generate",
-                    model=self.model,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    cached_tokens=cached,
-                    duration_ms=llm_duration
-                )
+                # 토큰 사용량 기록
+                if response.usage and self.contract_id:
+                    cached = 0
+                    if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                        cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="hyde.generate",
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        cached_tokens=cached,
+                        duration_ms=llm_duration
+                    )
 
-            return response.choices[0].message.content
+                return response.choices[0].message.content
         except Exception as e:
             print(f"HyDE LLM error: {e}")
             return self._fallback_expansion(prompt)
@@ -820,13 +881,13 @@ class HyDESearchEnhancer:
 
 # 편의 함수
 def create_hyde_generator(
-    model: str = "gpt-4o-mini",
+    model: str = None,
     strategy: HyDEStrategy = HyDEStrategy.ADAPTIVE,
     num_documents: int = 3
 ) -> HyDEGenerator:
     """HyDE 생성기 팩토리 함수"""
     return HyDEGenerator(
-        model=model,
+        model=model,  # None이면 settings.LLM_HYDE_MODEL 사용
         strategy=strategy,
         num_documents=num_documents
     )

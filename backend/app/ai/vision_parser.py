@@ -75,7 +75,7 @@ class VisionParser:
 2. 조항 (제1조, 제2조 등) 또는 번호 목록 (1., 2., 3. 등)
 3. 표 (임금 구성, 근로시간 등) - 마크다운 테이블로 변환
 4. 체크박스 (체크 여부 표시: [x] 또는 [ ])
-5. 서명란
+5. 서명란/당사자 정보
 6. 날짜
 7. 핵심 수치 (금액, 시간 등)
 
@@ -93,15 +93,36 @@ class VisionParser:
 [x] 동의함
 [ ] 동의하지 않음
 
+2024년 01월 01일
+
 ---
-서명: _______________
-날짜: 2024년 01월 01일
+
+| 구분 | 사업주 | 근로자 |
+|:---:|:---|:---|
+| 명칭/성명 | (주)회사명 | 홍길동 |
+| 대표자 | 김대표 | - |
+| 주소 | 서울시 강남구 | 서울시 서초구 |
+| 연락처 | 02-1234-5678 | 010-1234-5678 |
+
+**(서명)**
 ```
 
-중요:
+[중요 - 표 작성 규칙]
+- 표의 각 열에 실제 데이터가 있을 때만 해당 열에 값을 넣으세요.
+- 이미지에서 특정 열에 데이터가 보이지 않으면 해당 셀은 "-" 로 표시하세요.
+- 절대로 이미지에 없는 데이터를 추측하거나 만들어내지 마세요 (Hallucination 금지).
+- 서명란/당사자 정보 표에서 사업주/근로자 열 중 하나에만 데이터가 있다면, 나머지 열은 모두 "-"로 채우세요.
+
+[중요 - 정확성]
 - 모든 숫자와 금액은 정확하게 추출하세요.
-- 이미지에 있는 모든 텍스트를 빠짐없이 추출하세요.
-- 한글을 정확하게 인식하세요."""
+- 이미지에 있는 텍스트만 추출하세요. 없는 내용을 추가하지 마세요.
+- 한글을 정확하게 인식하세요.
+
+[절대 금지]
+- Hallucination: 이미지에 없는 데이터를 만들어내는 것
+- LaTeX 수식 표기: $\vee$, $\checkmark$ 등 사용 금지. 체크박스는 [x] 또는 [ ]로 표시
+- 긴 빈칸/밑줄 단순화: ____________ 같은 빈칸은 "____" (4개)로 축약
+- 언더스코어 이스케이프: \_ 대신 _ 그대로 사용"""
 
     # 표 추출 프롬프트
     TABLE_EXTRACTION_PROMPT = """이 이미지에서 표(테이블)를 찾아 JSON 형식으로 추출하세요.
@@ -112,6 +133,12 @@ class VisionParser:
 3. 행 데이터
 4. 표의 맥락 (임금 구성표, 근로시간표 등)
 
+[중요 - Hallucination 방지]
+- 이미지에 실제로 보이는 데이터만 추출하세요.
+- 특정 셀에 데이터가 없거나 보이지 않으면 "-" 또는 빈 문자열("")로 표시하세요.
+- 절대로 이미지에 없는 데이터를 추측하거나 만들어내지 마세요.
+- 열 개수와 행의 데이터 개수가 일치해야 합니다.
+
 출력 형식 (JSON만 출력):
 {
     "tables": [
@@ -121,7 +148,7 @@ class VisionParser:
             "headers": ["열1", "열2", "열3"],
             "rows": [
                 ["값1", "값2", "값3"],
-                ["값4", "값5", "값6"]
+                ["값4", "-", "값6"]
             ]
         }
     ]
@@ -138,11 +165,38 @@ class VisionParser:
 5. 불릿 항목: - 로 표시
 6. 중요한 내용/강조: **볼드**
 7. 주의사항/부연설명: *이탤릭*
-8. 체크박스: - [x] 또는 - [ ]
+8. 체크박스: - [x] 체크됨 또는 - [ ] 미체크
 9. 표: 마크다운 테이블 형식 (| 열1 | 열2 |)
 10. 금액/숫자: 정확하게 유지
 11. 날짜: 원본 형식 유지
-12. 서명란: --- (구분선) 후 서명 정보
+12. 서명란/당사자 정보: 아래 표 형식으로 작성
+
+[중요 - 표 작성 규칙 (Hallucination 방지)]
+- 이미지에 실제로 보이는 데이터만 표에 넣으세요.
+- 특정 셀에 데이터가 없거나 보이지 않으면 "-"로 표시하세요.
+- 절대로 이미지에 없는 데이터를 추측하거나 만들어내지 마세요.
+- 서명란 표에서 사업주/근로자 열 중 하나에만 데이터가 있다면, 나머지는 모두 "-"로 채우세요.
+
+[절대 금지]
+- Hallucination: 이미지에 없는 데이터를 만들어내는 것
+- LaTeX 수식 표기: $\vee$, $\checkmark$, $\times$ 등 사용 금지. 대신 [v], [x], [ ] 사용
+- 긴 빈칸/밑줄 단순화: ____________ 같은 빈칸은 "____" (언더스코어 4개)로 축약
+- 언더스코어 이스케이프: \_ 대신 _ 그대로 사용
+- 불필요한 수식 기호: 일반 텍스트로 표현
+
+서명란 표 형식 예시:
+```
+---
+
+| 구분 | 사업주 | 근로자 |
+|:---:|:---|:---|
+| 명칭/성명 | (실제 사업체명) | (실제 근로자 성명, 없으면 -) |
+| 대표자 | (실제 대표자명) | - |
+| 주소 | (실제 사업장 주소) | (실제 근로자 주소, 없으면 -) |
+| 연락처 | (실제 전화번호) | (실제 연락처, 없으면 -) |
+
+**(서명)**
+```
 
 원본 문서의 계층 구조와 논리적 흐름을 유지하면서 가독성 좋게 변환하세요.
 마크다운만 출력하세요 (설명이나 주석 없이):"""
@@ -156,19 +210,32 @@ class VisionParser:
         """
         Args:
             provider: Vision API 제공자 (GEMINI 또는 OPENAI)
-            model: 사용할 모델 (None이면 기본값 사용)
+            model: 사용할 모델 (None이면 config에서 읽음)
             max_image_size: 최대 이미지 크기 (픽셀)
         """
         self.provider = provider
         self.max_image_size = max_image_size
 
-        # 모델 설정
+        # 모델 설정: 파라미터 > 환경변수 > 기본값
         if model:
             self.model = model
-        elif provider == VisionProvider.GEMINI:
-            self.model = "gemini-2.5-flash-lite"
         else:
-            self.model = "gpt-4o"
+            # config에서 LLM_SCAN_MODEL 읽기
+            scan_model = os.getenv("LLM_SCAN_MODEL", "")
+            if scan_model:
+                self.model = scan_model
+            elif provider == VisionProvider.GEMINI:
+                self.model = "gemini-2.5-flash-preview-09-2025"
+            else:
+                self.model = "gpt-4o"
+
+        # Gemini safety settings (완전 완화 - 계약서 분석은 합법적 용도)
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
 
         # 클라이언트 초기화
         self._gemini_model = None
@@ -412,10 +479,12 @@ class VisionParser:
                 [self.STRUCTURE_PROMPT, image],
                 generation_config={
                     "max_output_tokens": 4000,
-                }
+                },
+                safety_settings=self.safety_settings
             )
 
-            return response.text
+            # 후처리: LaTeX 표기 및 과도한 언더스코어 정리
+            return self._postprocess_ocr_text(response.text)
 
         except Exception as e:
             print(f"Gemini structure extraction error: {e}")
@@ -468,14 +537,48 @@ class VisionParser:
                 [self.OCR_PROMPT, image],
                 generation_config={
                     "max_output_tokens": 4000,
-                }
+                },
+                safety_settings=self.safety_settings
             )
 
-            return response.text
+            # 후처리: LaTeX 표기 및 과도한 언더스코어 정리
+            return self._postprocess_ocr_text(response.text)
 
         except Exception as e:
             print(f"Gemini OCR error: {e}")
             return ""
+
+    def _postprocess_ocr_text(self, text: str) -> str:
+        """OCR 결과 후처리: LaTeX 표기 제거, 언더스코어 정리, 마크다운 리스트 수정"""
+        import re
+
+        # 1. LaTeX 체크마크 표기 변환
+        text = re.sub(r'\$\\vee\$', '[v]', text)
+        text = re.sub(r'\$\\checkmark\$', '[v]', text)
+        text = re.sub(r'\$\\times\$', '[x]', text)
+        text = re.sub(r'\$\\square\$', '[ ]', text)
+        # 기타 LaTeX 수식 제거 (단순 텍스트만 남김)
+        text = re.sub(r'\$([^$]+)\$', r'\1', text)
+
+        # 2. 이스케이프된 언더스코어 복원
+        text = text.replace('\\_', '_')
+
+        # 3. 과도한 언더스코어 축약 (5개 이상 -> 4개)
+        text = re.sub(r'_{5,}', '____', text)
+
+        # 4. 과도한 대시/하이픈 축약 (10개 이상 -> 3개)
+        text = re.sub(r'-{10,}', '---', text)
+
+        # 5. ## 숫자. 형식의 헤딩을 번호 목록으로 변환
+        # (예: ## 1. 제목 -> 1. 제목, ## 10. 제목 -> 10. 제목)
+        # 이렇게 해야 하위 bullet이 코드 블록이 아닌 nested list로 렌더링됨
+        text = re.sub(r'^##\s+(\d+\.)', r'\1', text, flags=re.MULTILINE)
+
+        # 6. 4칸 들여쓰기 bullet을 2칸으로 변환 (코드 블록 방지)
+        # (예: "    - 항목" -> "  - 항목")
+        text = re.sub(r'^    (-\s)', r'  \1', text, flags=re.MULTILINE)
+
+        return text
 
     def _openai_ocr(self, image_data: str) -> str:
         """OpenAI OCR"""
@@ -527,7 +630,8 @@ class VisionParser:
                 [self.TABLE_EXTRACTION_PROMPT, image],
                 generation_config={
                     "max_output_tokens": 2000,
-                }
+                },
+                safety_settings=self.safety_settings
             )
 
             # JSON 파싱

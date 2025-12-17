@@ -128,6 +128,139 @@ class PipelineLogger:
         )
         self.logger.error(f"[{step_name}] Traceback:\n{tb}")
 
+    def log_llm_call(
+        self,
+        step_name: str,
+        model: str,
+        prompt: str,
+        response: str,
+        temperature: float = 0.0,
+        max_tokens: int = 0,
+        duration_ms: float = 0.0,
+        extra: Dict[str, Any] = None
+    ):
+        """
+        LLM 호출 상세 로깅 (프롬프트/응답 전문 포함)
+
+        Args:
+            step_name: 단계 이름
+            model: 사용된 모델명
+            prompt: LLM에 전송된 프롬프트 전문
+            response: LLM 응답 전문
+            temperature: temperature 값
+            max_tokens: max_tokens 값
+            duration_ms: 처리 시간
+            extra: 추가 정보
+        """
+        llm_log = {
+            "type": "llm_call",
+            "model": model,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "prompt_length": len(prompt),
+            "response_length": len(response),
+            "prompt": prompt,
+            "response": response,
+            **(extra or {})
+        }
+
+        self.log_step(
+            step_name=f"{step_name}_LLM",
+            status="success",
+            output_summary=f"Model: {model}, Prompt: {len(prompt)} chars, Response: {len(response)} chars",
+            duration_ms=duration_ms,
+            details=llm_log
+        )
+
+        # 파일에 전문 기록
+        self.logger.debug(f"[{step_name}_LLM] === PROMPT ===\n{prompt}")
+        self.logger.debug(f"[{step_name}_LLM] === RESPONSE ===\n{response}")
+
+    def log_retrieval(
+        self,
+        step_name: str,
+        query: str,
+        results: list,
+        scores: list = None,
+        retrieval_type: str = "vector",
+        duration_ms: float = 0.0,
+        extra: Dict[str, Any] = None
+    ):
+        """
+        검색 결과 상세 로깅 (검색된 문서 전문 포함)
+
+        Args:
+            step_name: 단계 이름
+            query: 검색 쿼리
+            results: 검색된 문서 리스트 (각 문서는 dict 또는 str)
+            scores: 유사도 점수 리스트
+            retrieval_type: 검색 유형 ("vector", "graph", "hybrid")
+            duration_ms: 처리 시간
+            extra: 추가 정보
+        """
+        retrieval_log = {
+            "type": "retrieval",
+            "retrieval_type": retrieval_type,
+            "query": query,
+            "result_count": len(results),
+            "results": results,
+            "scores": scores or [],
+            **(extra or {})
+        }
+
+        self.log_step(
+            step_name=f"{step_name}_Retrieval",
+            status="success",
+            input_summary=f"Query: {query[:100]}..." if len(query) > 100 else f"Query: {query}",
+            output_summary=f"Retrieved {len(results)} docs via {retrieval_type}",
+            duration_ms=duration_ms,
+            details=retrieval_log
+        )
+
+        # 파일에 전문 기록
+        self.logger.debug(f"[{step_name}_Retrieval] === QUERY ===\n{query}")
+        for i, doc in enumerate(results):
+            score_str = f" (score: {scores[i]:.4f})" if scores and i < len(scores) else ""
+            doc_content = doc if isinstance(doc, str) else json.dumps(doc, ensure_ascii=False, indent=2)
+            self.logger.debug(f"[{step_name}_Retrieval] === RESULT {i+1}{score_str} ===\n{doc_content}")
+
+    def log_detail(
+        self,
+        step_name: str,
+        category: str,
+        data: Any,
+        description: str = ""
+    ):
+        """
+        상세 데이터 로깅 (요약 없이 전체 데이터 저장)
+
+        Args:
+            step_name: 단계 이름
+            category: 데이터 카테고리
+            data: 저장할 데이터 (dict, list, str 등)
+            description: 설명
+        """
+        detail_log = {
+            "type": "detail",
+            "category": category,
+            "description": description,
+            "data": data
+        }
+
+        self.log_step(
+            step_name=f"{step_name}_{category}",
+            status="success",
+            output_summary=description,
+            details=detail_log
+        )
+
+        # 파일에 전문 기록
+        if isinstance(data, (dict, list)):
+            data_str = json.dumps(data, ensure_ascii=False, indent=2)
+        else:
+            data_str = str(data)
+        self.logger.debug(f"[{step_name}_{category}] {description}\n{data_str}")
+
     def get_summary(self) -> Dict[str, Any]:
         """로그 요약 반환"""
         total_duration = sum(s.duration_ms for s in self.steps)

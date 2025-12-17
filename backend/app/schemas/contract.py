@@ -1,6 +1,38 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
+
+
+# 버전 관리 스키마
+class DocumentVersionCreate(BaseModel):
+    """문서 버전 생성 요청"""
+    content: str = Field(..., description="수정된 문서 전체 텍스트")
+    changes: Optional[Dict[str, Any]] = Field(None, description="변경 사항 상세")
+    change_summary: Optional[str] = Field(None, description="변경 요약")
+    created_by: str = Field(default="user", description="생성자 (user 또는 ai)")
+
+
+class DocumentVersionResponse(BaseModel):
+    """문서 버전 응답"""
+    id: int
+    contract_id: int
+    version_number: int
+    content: str
+    changes: Optional[Dict[str, Any]] = None
+    change_summary: Optional[str] = None
+    is_current: bool
+    created_at: datetime
+    created_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DocumentVersionListResponse(BaseModel):
+    """문서 버전 목록 응답"""
+    versions: List[DocumentVersionResponse]
+    current_version: int
+
 
 class ContractResponse(BaseModel):
     id: int = Field(..., example=1)
@@ -11,6 +43,23 @@ class ContractResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ContractStats(BaseModel):
+    """계약서 통계"""
+    total: int = Field(..., description="전체 계약서 수")
+    completed: int = Field(..., description="완료된 계약서 수")
+    processing: int = Field(..., description="처리 중인 계약서 수")
+    failed: int = Field(..., description="실패한 계약서 수")
+
+
+class ContractListResponse(BaseModel):
+    """계약서 목록 페이지네이션 응답"""
+    items: List[ContractResponse]
+    total: int = Field(..., description="전체 계약서 수")
+    skip: int = Field(..., description="건너뛴 항목 수")
+    limit: int = Field(..., description="페이지당 항목 수")
+    stats: ContractStats = Field(..., description="전체 통계")
+
 
 class ContractDetailResponse(ContractResponse):
     file_url: str

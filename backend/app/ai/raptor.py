@@ -21,6 +21,7 @@ import numpy as np
 from datetime import datetime
 import hashlib
 
+from app.core.config import settings
 from app.core.token_usage_tracker import record_llm_usage
 
 
@@ -270,24 +271,15 @@ class RAPTORIndexer:
 [카테고리별 요약]
 {category_summaries}
 
-[종합 요약 형식]
-1. 계약 개요
-   - 계약 유형
-   - 주요 당사자
-   - 계약 기간
-
-2. 핵심 근로조건
-   - 임금:
-   - 근로시간:
-   - 휴가:
-
-3. 주의 필요 사항
-   - 위험 조항:
-   - 불명확 조항:
-
-4. 종합 평가
-   - 근로자 유리/불리 여부
-   - 법적 문제 가능성
+[작성 지침]
+- 자연스러운 줄글(문단) 형식으로 작성하세요. 번호 매기기나 bullet point를 사용하지 마세요.
+- 핵심 키워드나 중요한 정보는 **볼드체**로 강조하세요. (예: **월 200만원**, **주 52시간 초과**)
+- 위험한 조항이나 법적 문제가 있는 부분은 반드시 **볼드체**로 표시하세요.
+- 3-4개 문단으로 구성하세요:
+  1) 계약 개요 (계약 유형, 당사자, 기간)
+  2) 핵심 근로조건 (임금, 근로시간, 휴가)
+  3) 주의가 필요한 위험 조항들
+  4) 종합 평가 및 권고사항
 
 [종합 요약]"""
 
@@ -295,7 +287,7 @@ class RAPTORIndexer:
         self,
         llm_client: Optional[Any] = None,
         embedding_model: Optional[Any] = None,
-        model: str = "gpt-4o-mini",
+        model: str = None,
         cluster_size: int = 5,
         max_levels: int = 3,
         summarization_strategy: SummarizationStrategy = SummarizationStrategy.LEGAL_FOCUSED,
@@ -305,9 +297,9 @@ class RAPTORIndexer:
     ):
         """
         Args:
-            llm_client: OpenAI 클라이언트
+            llm_client: OpenAI 클라이언트 (legacy, Gemini 사용 시 무시됨)
             embedding_model: 임베딩 모델
-            model: LLM 모델명
+            model: LLM 모델명 (기본값: settings.LLM_RAPTOR_MODEL)
             cluster_size: 한 번에 요약할 청크 수
             max_levels: 최대 트리 레벨
             summarization_strategy: 요약 전략
@@ -315,23 +307,42 @@ class RAPTORIndexer:
             min_cluster_size: 최소 클러스터 크기
             contract_id: 계약서 ID (토큰 추적용)
         """
-        self.model = model
+        self.model = model if model else settings.LLM_RAPTOR_MODEL
         self.cluster_size = cluster_size
         self.max_levels = max_levels
         self.summarization_strategy = summarization_strategy
         self.clustering_method = clustering_method
         self.min_cluster_size = min_cluster_size
         self.contract_id = contract_id
+        self.llm_client = llm_client  # OpenAI fallback
 
-        # LLM 클라이언트 초기화
-        if llm_client is None:
+        # Gemini safety settings (완전 완화 - 계약서 분석은 합법적 용도)
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+
+        # Gemini 클라이언트 초기화 (우선 사용)
+        self._gemini_model = None
+        if "gemini" in self.model.lower():
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                self._gemini_model = genai.GenerativeModel(self.model)
+            except ImportError:
+                print("google-generativeai package not installed, falling back to OpenAI")
+            except Exception as e:
+                print(f"Gemini initialization error: {e}")
+
+        # OpenAI fallback
+        if self._gemini_model is None and self.llm_client is None:
             try:
                 from openai import OpenAI
                 self.llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             except ImportError:
                 self.llm_client = None
-        else:
-            self.llm_client = llm_client
 
         # 임베딩 모델 초기화
         if embedding_model is None:
@@ -639,7 +650,7 @@ class RAPTORIndexer:
         if len(texts) == 1:
             return texts[0]
 
-        if self.llm_client is None:
+        if self._gemini_model is None and self.llm_client is None:
             return "\n\n".join(texts[:3])
 
         llm_start = time.time()
@@ -656,47 +667,77 @@ class RAPTORIndexer:
             documents = "\n\n---\n\n".join(texts)
             prompt = prompt_template.format(documents=documents)
 
-            # reasoning 모델은 temperature 미지원
-            if self._is_reasoning_model():
-                response = self.llm_client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "user", "content": f"당신은 법률 문서 요약 전문가입니다. 핵심 법적 정보를 정확히 보존하면서 간결하게 요약합니다.\n\n{prompt}"}
-                    ],
-                    max_completion_tokens=800
+            # Gemini 사용 (우선)
+            if self._gemini_model is not None:
+                full_prompt = "당신은 법률 문서 요약 전문가입니다. 핵심 법적 정보를 정확히 보존하면서 간결하게 요약합니다.\n\n" + prompt
+                result = self._gemini_model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": 0.3,
+                        "max_output_tokens": 800
+                    },
+                    safety_settings=self.safety_settings
                 )
+                llm_duration = (time.time() - llm_start) * 1000
+
+                # 토큰 사용량 기록
+                if self.contract_id and hasattr(result, 'usage_metadata'):
+                    usage = result.usage_metadata
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="raptor.summarize",
+                        model=self.model,
+                        input_tokens=getattr(usage, 'prompt_token_count', 0),
+                        output_tokens=getattr(usage, 'candidates_token_count', 0),
+                        cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                        duration_ms=llm_duration
+                    )
+
+                return result.text
+
+            # OpenAI fallback
             else:
-                response = self.llm_client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "당신은 법률 문서 요약 전문가입니다. 핵심 법적 정보를 정확히 보존하면서 간결하게 요약합니다."
-                        },
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3,
-                    max_completion_tokens=800
-                )
+                # reasoning 모델은 temperature 미지원
+                if self._is_reasoning_model():
+                    response = self.llm_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "user", "content": f"당신은 법률 문서 요약 전문가입니다. 핵심 법적 정보를 정확히 보존하면서 간결하게 요약합니다.\n\n{prompt}"}
+                        ],
+                        max_completion_tokens=800
+                    )
+                else:
+                    response = self.llm_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "당신은 법률 문서 요약 전문가입니다. 핵심 법적 정보를 정확히 보존하면서 간결하게 요약합니다."
+                            },
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3,
+                        max_completion_tokens=800
+                    )
 
-            llm_duration = (time.time() - llm_start) * 1000
+                llm_duration = (time.time() - llm_start) * 1000
 
-            # 토큰 사용량 기록
-            if response.usage and self.contract_id:
-                cached = 0
-                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
-                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
-                record_llm_usage(
-                    contract_id=self.contract_id,
-                    module="raptor.summarize",
-                    model=self.model,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    cached_tokens=cached,
-                    duration_ms=llm_duration
-                )
+                # 토큰 사용량 기록
+                if response.usage and self.contract_id:
+                    cached = 0
+                    if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                        cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="raptor.summarize",
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        cached_tokens=cached,
+                        duration_ms=llm_duration
+                    )
 
-            return response.choices[0].message.content
+                return response.choices[0].message.content
 
         except Exception as e:
             print(f"RAPTOR summarization error: {e}")
@@ -1065,7 +1106,7 @@ class ContractRAPTOR:
 
     def _generate_contract_overview(self, category_summaries: Dict[str, str]) -> str:
         """계약서 전체 개요 생성"""
-        if self.indexer.llm_client is None:
+        if self.indexer._gemini_model is None and self.indexer.llm_client is None:
             return "\n\n".join(f"[{k}]\n{v}" for k, v in category_summaries.items())
 
         llm_start = time.time()
@@ -1079,47 +1120,77 @@ class ContractRAPTOR:
                 category_summaries=summaries_text
             )
 
-            # reasoning 모델은 temperature 미지원
-            if self.indexer._is_reasoning_model():
-                response = self.indexer.llm_client.chat.completions.create(
-                    model=self.indexer.model,
-                    messages=[
-                        {"role": "user", "content": f"당신은 근로계약서 분석 전문가입니다.\n\n{prompt}"}
-                    ],
-                    max_completion_tokens=1000
+            # Gemini 사용 (우선)
+            if self.indexer._gemini_model is not None:
+                full_prompt = "당신은 근로계약서 분석 전문가입니다.\n\n" + prompt
+                result = self.indexer._gemini_model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": 0.3,
+                        "max_output_tokens": 1000
+                    },
+                    safety_settings=self.indexer.safety_settings
                 )
+                llm_duration = (time.time() - llm_start) * 1000
+
+                # 토큰 사용량 기록
+                if self.indexer.contract_id and hasattr(result, 'usage_metadata'):
+                    usage = result.usage_metadata
+                    record_llm_usage(
+                        contract_id=self.indexer.contract_id,
+                        module="raptor.contract_overview",
+                        model=self.indexer.model,
+                        input_tokens=getattr(usage, 'prompt_token_count', 0),
+                        output_tokens=getattr(usage, 'candidates_token_count', 0),
+                        cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                        duration_ms=llm_duration
+                    )
+
+                return result.text
+
+            # OpenAI fallback
             else:
-                response = self.indexer.llm_client.chat.completions.create(
-                    model=self.indexer.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "당신은 근로계약서 분석 전문가입니다."
-                        },
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3,
-                    max_completion_tokens=1000
-                )
+                # reasoning 모델은 temperature 미지원
+                if self.indexer._is_reasoning_model():
+                    response = self.indexer.llm_client.chat.completions.create(
+                        model=self.indexer.model,
+                        messages=[
+                            {"role": "user", "content": f"당신은 근로계약서 분석 전문가입니다.\n\n{prompt}"}
+                        ],
+                        max_completion_tokens=1000
+                    )
+                else:
+                    response = self.indexer.llm_client.chat.completions.create(
+                        model=self.indexer.model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "당신은 근로계약서 분석 전문가입니다."
+                            },
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3,
+                        max_completion_tokens=1000
+                    )
 
-            llm_duration = (time.time() - llm_start) * 1000
+                llm_duration = (time.time() - llm_start) * 1000
 
-            # 토큰 사용량 기록
-            if response.usage and self.indexer.contract_id:
-                cached = 0
-                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
-                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
-                record_llm_usage(
-                    contract_id=self.indexer.contract_id,
-                    module="raptor.contract_overview",
-                    model=self.indexer.model,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    cached_tokens=cached,
-                    duration_ms=llm_duration
-                )
+                # 토큰 사용량 기록
+                if response.usage and self.indexer.contract_id:
+                    cached = 0
+                    if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                        cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                    record_llm_usage(
+                        contract_id=self.indexer.contract_id,
+                        module="raptor.contract_overview",
+                        model=self.indexer.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        cached_tokens=cached,
+                        duration_ms=llm_duration
+                    )
 
-            return response.choices[0].message.content
+                return response.choices[0].message.content
 
         except Exception as e:
             print(f"Contract overview error: {e}")

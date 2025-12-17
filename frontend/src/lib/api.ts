@@ -58,6 +58,21 @@ export interface ContractDetail extends Contract {
   analysis_result: AnalysisResult | null;
 }
 
+export interface ContractStats {
+  total: number;
+  completed: number;
+  processing: number;
+  failed: number;
+}
+
+export interface ContractListResponse {
+  items: Contract[];
+  total: number;
+  skip: number;
+  limit: number;
+  stats: ContractStats;
+}
+
 // Legacy interface for backward compatibility
 export interface RiskClause {
   text: string;
@@ -97,10 +112,14 @@ export interface StressTestViolation {
   current_value?: unknown;
   legal_standard?: unknown;
   suggestion?: string;  // V2: 수정 제안
+  suggested_text?: string;  // V2: 수정된 조항 텍스트 (대체용)
   // V2: LLM 조항 분석 추가 필드
   clause_number?: string;
   sources?: string[];  // CRAG 검색 출처
   original_text?: string;  // 원본 조항 텍스트 (하이라이팅용)
+  matched_text?: string;  // 하이라이팅할 실제 텍스트 (텍스트 기반 매칭용)
+  start_index?: number;  // 원본 텍스트 시작 위치
+  end_index?: number;  // 원본 텍스트 끝 위치
 }
 
 export interface StressTestResult {
@@ -276,8 +295,8 @@ export const authApi = {
 
 // Contracts API
 export const contractsApi = {
-  list: async (skip = 0, limit = 20): Promise<Contract[]> => {
-    return request<Contract[]>(`/api/v1/contracts?skip=${skip}&limit=${limit}`);
+  list: async (skip = 0, limit = 10): Promise<ContractListResponse> => {
+    return request<ContractListResponse>(`/api/v1/contracts?skip=${skip}&limit=${limit}`);
   },
 
   get: async (id: number): Promise<ContractDetail> => {
@@ -299,7 +318,57 @@ export const contractsApi = {
       method: "DELETE",
     });
   },
+
+  // 버전 관리 API
+  getVersions: async (contractId: number): Promise<DocumentVersionListResponse> => {
+    return request<DocumentVersionListResponse>(`/api/v1/contracts/${contractId}/versions`);
+  },
+
+  createVersion: async (
+    contractId: number,
+    data: DocumentVersionCreate
+  ): Promise<DocumentVersion> => {
+    return request<DocumentVersion>(`/api/v1/contracts/${contractId}/versions`, {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  getVersion: async (contractId: number, versionNumber: number): Promise<DocumentVersion> => {
+    return request<DocumentVersion>(`/api/v1/contracts/${contractId}/versions/${versionNumber}`);
+  },
+
+  restoreVersion: async (contractId: number, versionNumber: number): Promise<DocumentVersion> => {
+    return request<DocumentVersion>(`/api/v1/contracts/${contractId}/versions/${versionNumber}/restore`, {
+      method: "POST",
+    });
+  },
 };
+
+// 버전 관리 타입 정의
+export interface DocumentVersion {
+  id: number;
+  contract_id: number;
+  version_number: number;
+  content: string;
+  changes?: Record<string, unknown>;
+  change_summary?: string;
+  is_current: boolean;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface DocumentVersionCreate {
+  content: string;
+  changes?: Record<string, unknown>;
+  change_summary?: string;
+  created_by?: string;
+}
+
+export interface DocumentVersionListResponse {
+  versions: DocumentVersion[];
+  current_version: number;
+}
 
 // Chat API
 export const chatApi = {

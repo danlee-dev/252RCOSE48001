@@ -8,12 +8,14 @@ Reference: "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"
 """
 
 import os
+import re
 import json
 import time
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
+from app.core.config import settings
 from app.core.token_usage_tracker import record_llm_usage
 
 
@@ -223,29 +225,49 @@ class LLMJudge:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o-mini",
+        model: str = None,
         strict_mode: bool = True,
         contract_id: Optional[str] = None
     ):
         """
         Args:
-            llm_client: OpenAI 클라이언트
-            model: 심판에 사용할 LLM 모델
+            llm_client: OpenAI 클라이언트 (legacy, Gemini 사용 시 무시됨)
+            model: 심판에 사용할 LLM 모델 (기본값: settings.LLM_JUDGE_MODEL)
             strict_mode: 엄격 모드 (팩트체크 포함)
             contract_id: 계약서 ID (토큰 추적용)
         """
-        self.model = model
+        self.model = model if model else settings.LLM_JUDGE_MODEL
         self.strict_mode = strict_mode
         self.contract_id = contract_id
+        self.llm_client = llm_client  # OpenAI fallback
 
-        if llm_client is None:
+        # Gemini safety settings (완전 완화 - 계약서 분석은 합법적 용도)
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+
+        # Gemini 클라이언트 초기화 (우선 사용)
+        self._gemini_model = None
+        if "gemini" in self.model.lower():
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                self._gemini_model = genai.GenerativeModel(self.model)
+            except ImportError:
+                print("google-generativeai package not installed, falling back to OpenAI")
+            except Exception as e:
+                print(f"Gemini initialization error: {e}")
+
+        # OpenAI fallback
+        if self._gemini_model is None and self.llm_client is None:
             try:
                 from openai import OpenAI
                 self.llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             except ImportError:
-                self.llm_client = None
-        else:
-            self.llm_client = llm_client
+                pass
 
     def evaluate(
         self,
@@ -307,6 +329,9 @@ class LLMJudge:
         context: str
     ) -> Dict[str, Any]:
         """LLM 기반 평가"""
+        if self._gemini_model is None and self.llm_client is None:
+            return self._rule_based_evaluate(analysis, context)
+
         llm_start = time.time()
         try:
             prompt = self.JUDGE_PROMPT.format(
@@ -314,37 +339,71 @@ class LLMJudge:
                 context=context or "컨텍스트 없음"
             )
 
-            response = self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 법률 AI 분석 결과를 평가하는 공정한 심판관입니다."
+            # Gemini 사용 (우선)
+            if self._gemini_model is not None:
+                full_prompt = "당신은 법률 AI 분석 결과를 평가하는 공정한 심판관입니다.\n\n" + prompt
+                result = self._gemini_model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": 0.1,
+                        "response_mime_type": "application/json"
                     },
-                    {"role": "user", "content": prompt}
-                ],
+                    safety_settings=self.safety_settings
+                )
+                llm_duration = (time.time() - llm_start) * 1000
 
-                response_format={"type": "json_object"}
-            )
+                # 토큰 사용량 기록
+                if self.contract_id and hasattr(result, 'usage_metadata'):
+                    usage = result.usage_metadata
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="judge.evaluate",
+                        model=self.model,
+                        input_tokens=getattr(usage, 'prompt_token_count', 0),
+                        output_tokens=getattr(usage, 'candidates_token_count', 0),
+                        cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                        duration_ms=llm_duration
+                    )
 
-            llm_duration = (time.time() - llm_start) * 1000
+                # JSON 파싱
+                result_text = result.text.strip()
+                if result_text.startswith("```"):
+                    result_text = re.sub(r'^```(?:json)?\s*', '', result_text)
+                    result_text = re.sub(r'\s*```$', '', result_text)
+                return json.loads(result_text)
 
-            # 토큰 사용량 기록
-            if response.usage and self.contract_id:
-                cached = 0
-                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
-                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
-                record_llm_usage(
-                    contract_id=self.contract_id,
-                    module="judge.evaluate",
+            # OpenAI fallback
+            else:
+                response = self.llm_client.chat.completions.create(
                     model=self.model,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    cached_tokens=cached,
-                    duration_ms=llm_duration
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "당신은 법률 AI 분석 결과를 평가하는 공정한 심판관입니다."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"}
                 )
 
-            return json.loads(response.choices[0].message.content)
+                llm_duration = (time.time() - llm_start) * 1000
+
+                # 토큰 사용량 기록
+                if response.usage and self.contract_id:
+                    cached = 0
+                    if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                        cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="judge.evaluate",
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        cached_tokens=cached,
+                        duration_ms=llm_duration
+                    )
+
+                return json.loads(response.choices[0].message.content)
 
         except Exception as e:
             print(f"LLM evaluation error: {e}")
@@ -387,41 +446,78 @@ class LLMJudge:
 
     def _fact_check(self, analysis: str) -> Dict[str, Any]:
         """팩트 체크"""
+        if self._gemini_model is None and self.llm_client is None:
+            return {"fact_errors": [], "accuracy_score": 5, "critical_errors": False}
+
         llm_start = time.time()
         try:
             prompt = self.FACT_CHECK_PROMPT.format(analysis=analysis)
 
-            response = self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 법률 정보 팩트체커입니다."
+            # Gemini 사용 (우선)
+            if self._gemini_model is not None:
+                full_prompt = "당신은 법률 정보 팩트체커입니다.\n\n" + prompt
+                result = self._gemini_model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": 0.1,
+                        "response_mime_type": "application/json"
                     },
-                    {"role": "user", "content": prompt}
-                ],
+                    safety_settings=self.safety_settings
+                )
+                llm_duration = (time.time() - llm_start) * 1000
 
-                response_format={"type": "json_object"}
-            )
+                # 토큰 사용량 기록
+                if self.contract_id and hasattr(result, 'usage_metadata'):
+                    usage = result.usage_metadata
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="judge.fact_check",
+                        model=self.model,
+                        input_tokens=getattr(usage, 'prompt_token_count', 0),
+                        output_tokens=getattr(usage, 'candidates_token_count', 0),
+                        cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                        duration_ms=llm_duration
+                    )
 
-            llm_duration = (time.time() - llm_start) * 1000
+                # JSON 파싱
+                result_text = result.text.strip()
+                if result_text.startswith("```"):
+                    result_text = re.sub(r'^```(?:json)?\s*', '', result_text)
+                    result_text = re.sub(r'\s*```$', '', result_text)
+                return json.loads(result_text)
 
-            # 토큰 사용량 기록
-            if response.usage and self.contract_id:
-                cached = 0
-                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
-                    cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
-                record_llm_usage(
-                    contract_id=self.contract_id,
-                    module="judge.fact_check",
+            # OpenAI fallback
+            else:
+                response = self.llm_client.chat.completions.create(
                     model=self.model,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    cached_tokens=cached,
-                    duration_ms=llm_duration
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "당신은 법률 정보 팩트체커입니다."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"}
                 )
 
-            return json.loads(response.choices[0].message.content)
+                llm_duration = (time.time() - llm_start) * 1000
+
+                # 토큰 사용량 기록
+                if response.usage and self.contract_id:
+                    cached = 0
+                    if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details:
+                        cached = getattr(response.usage.prompt_tokens_details, 'cached_tokens', 0) or 0
+                    record_llm_usage(
+                        contract_id=self.contract_id,
+                        module="judge.fact_check",
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        cached_tokens=cached,
+                        duration_ms=llm_duration
+                    )
+
+                return json.loads(response.choices[0].message.content)
 
         except Exception as e:
             print(f"Fact check error: {e}")

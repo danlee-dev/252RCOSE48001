@@ -20,6 +20,7 @@ from functools import lru_cache
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+from app.core.config import settings
 from app.core.token_usage_tracker import record_llm_usage
 
 
@@ -303,7 +304,7 @@ class GraphGuidedCRAG:
         es_client: Optional[Any] = None,
         neo4j_driver: Optional[Any] = None,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o-mini",
+        model: str = None,
         quality_threshold: float = 0.7,
         max_correction_iterations: int = 3,
         enable_caching: bool = True,
@@ -315,7 +316,7 @@ class GraphGuidedCRAG:
             es_client: Elasticsearch 클라이언트
             neo4j_driver: Neo4j 드라이버
             llm_client: OpenAI 클라이언트
-            model: 평가에 사용할 LLM 모델
+            model: 평가에 사용할 LLM 모델 (기본값: settings.LLM_CRAG_MODEL)
             quality_threshold: 품질 임계값
             max_correction_iterations: 최대 보정 반복 횟수
             enable_caching: 캐싱 활성화
@@ -324,7 +325,7 @@ class GraphGuidedCRAG:
         """
         self.es_client = es_client
         self.neo4j_driver = neo4j_driver
-        self.model = model
+        self.model = model if model else settings.LLM_CRAG_MODEL
         self.quality_threshold = quality_threshold
         self.max_correction_iterations = max_correction_iterations
         self.enable_caching = enable_caching

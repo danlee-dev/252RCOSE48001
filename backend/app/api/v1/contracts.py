@@ -4,10 +4,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import desc, func
 from app.core.database import get_db, AsyncSessionLocal
-from app.schemas.contract import ContractResponse, ContractDetailResponse
+from app.schemas.contract import (
+    ContractResponse,
+    ContractListResponse,
+    ContractStats,
+    ContractDetailResponse,
+    DocumentVersionCreate,
+    DocumentVersionResponse,
+    DocumentVersionListResponse
+)
 from app.api import deps
 from app.models.user import User
-from app.models.contract import Contract 
+from app.models.contract import Contract, DocumentVersion 
 from app.utils.file_storage import save_contract_file, delete_contract_file 
 from app.core.celery_app import celery_app 
 import requests
@@ -125,42 +133,79 @@ async def upload_contract(
         "status": new_contract.status
     }
 
-@router.get("/", response_model=List[ContractResponse], summary="내 계약서 목록 조회 (검색 지원)")
+@router.get("/", response_model=ContractListResponse, summary="내 계약서 목록 조회 (검색 지원)")
 async def read_contracts(
-    skip: int = 0, 
-    limit: int = 10, 
+    skip: int = 0,
+    limit: int = 10,
     search: Optional[str] = Query(None, description="계약서 제목 검색어"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """
-    **[보호됨]** 현재 로그인한 사용자가 업로드한 모든 계약서의 목록을 조회합니다. 
+    **[보호됨]** 현재 로그인한 사용자가 업로드한 모든 계약서의 목록을 조회합니다.
     결과는 페이지네이션을 지원하며, **업로드 최신순**으로 반환됩니다.
     `search` 파라미터를 통해 제목으로 필터링할 수 있습니다.
-    
+
     - **요청 파라미터 (Query):**
         - `skip`: 건너뛸 항목 수 (페이지네이션 오프셋, 기본값 0).
         - `limit`: 한 번에 가져올 최대 항목 수 (페이지 크기, 기본값 10).
         - `search`: (선택) 계약서 제목 검색 키워드.
     - **응답 (Output):**
-        - `200 OK`: 계약서 ID, 제목, 상태, 위험도 레벨 등 핵심 정보 목록.
+        - `200 OK`: 계약서 목록과 총 개수를 포함한 페이지네이션 정보.
     """
-    
-    # 기본 쿼리: 현재 사용자의 계약서만 조회
-    query = select(Contract).where(Contract.user_id == current_user.id)
-    
-    # 검색어가 있는 경우 필터링 조건 추가 (대소문자 구분 없이 부분 일치)
+
+    # 기본 쿼리 조건: 현재 사용자의 계약서만 조회
+    user_condition = Contract.user_id == current_user.id
+
+    # 전체 통계 계산 (검색/페이지네이션 무관하게 전체 대상)
+    stats_total = await db.execute(
+        select(func.count()).select_from(Contract).where(user_condition)
+    )
+    stats_completed = await db.execute(
+        select(func.count()).select_from(Contract).where(
+            user_condition & (Contract.status == "COMPLETED")
+        )
+    )
+    stats_processing = await db.execute(
+        select(func.count()).select_from(Contract).where(
+            user_condition & (Contract.status.in_(["PENDING", "PROCESSING"]))
+        )
+    )
+    stats_failed = await db.execute(
+        select(func.count()).select_from(Contract).where(
+            user_condition & (Contract.status == "FAILED")
+        )
+    )
+
+    stats = ContractStats(
+        total=stats_total.scalar() or 0,
+        completed=stats_completed.scalar() or 0,
+        processing=stats_processing.scalar() or 0,
+        failed=stats_failed.scalar() or 0
+    )
+
+    # 검색어가 있는 경우 필터링 조건 추가
+    search_condition = user_condition
     if search:
-        query = query.where(Contract.title.ilike(f"%{search}%"))
-        
-    # 정렬 및 페이지네이션 적용
-    query = query.order_by(desc(Contract.created_at)).offset(skip).limit(limit)
-    
-    # DB에서 데이터 실행
+        search_condition = user_condition & Contract.title.ilike(f"%{search}%")
+
+    # 전체 개수 조회 (검색 결과 대상)
+    count_query = select(func.count()).select_from(Contract).where(search_condition)
+    count_result = await db.execute(count_query)
+    total = count_result.scalar() or 0
+
+    # 데이터 조회 (정렬 및 페이지네이션 적용)
+    query = select(Contract).where(search_condition).order_by(desc(Contract.created_at)).offset(skip).limit(limit)
     result = await db.execute(query)
-    contracts = result.scalars().all() 
-    
-    return contracts
+    contracts = result.scalars().all()
+
+    return ContractListResponse(
+        items=contracts,
+        total=total,
+        skip=skip,
+        limit=limit,
+        stats=stats
+    )
 
 @router.get("/{contract_id}", response_model=ContractDetailResponse, summary="계약서 상세 조회")
 async def read_contract_detail(
@@ -394,3 +439,232 @@ async def search_risk_pattern(
     except Exception as e:
         print(f"Neo4j search failed: {e}")
         raise HTTPException(status_code=500, detail="GraphDB 검색 실패")
+
+
+# -------------------------------------------------------------------------
+# 문서 버전 관리 API (Google Docs 스타일)
+# -------------------------------------------------------------------------
+
+@router.get("/{contract_id}/versions",
+            response_model=DocumentVersionListResponse,
+            summary="문서 버전 목록 조회")
+async def get_contract_versions(
+    contract_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    **[보호됨]** 특정 계약서의 모든 버전 목록을 조회합니다.
+
+    - 버전 번호 순으로 정렬되어 반환됩니다.
+    - 현재 활성 버전(is_current=True)이 어떤 것인지 함께 반환됩니다.
+    """
+    # 계약서 소유권 확인
+    stmt = select(Contract).where(
+        Contract.id == contract_id,
+        Contract.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="계약서를 찾을 수 없습니다.")
+
+    # 버전 목록 조회
+    version_stmt = select(DocumentVersion).where(
+        DocumentVersion.contract_id == contract_id
+    ).order_by(DocumentVersion.version_number)
+
+    version_result = await db.execute(version_stmt)
+    versions = version_result.scalars().all()
+
+    # 현재 버전 번호 찾기
+    current_version = 0
+    for v in versions:
+        if v.is_current:
+            current_version = v.version_number
+            break
+
+    # 버전이 없으면 원본 문서를 버전 1로 생성
+    if not versions:
+        initial_version = DocumentVersion(
+            contract_id=contract_id,
+            version_number=1,
+            content=contract.extracted_text or "",
+            is_current=True,
+            created_by="system",
+            change_summary="원본 문서"
+        )
+        db.add(initial_version)
+        await db.commit()
+        await db.refresh(initial_version)
+        versions = [initial_version]
+        current_version = 1
+
+    return DocumentVersionListResponse(
+        versions=[DocumentVersionResponse.model_validate(v) for v in versions],
+        current_version=current_version
+    )
+
+
+@router.post("/{contract_id}/versions",
+             response_model=DocumentVersionResponse,
+             status_code=201,
+             summary="새 문서 버전 생성")
+async def create_contract_version(
+    contract_id: int,
+    version_data: DocumentVersionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    **[보호됨]** 수정된 계약서 내용으로 새 버전을 생성합니다.
+
+    - 기존 버전들은 is_current=False로 변경됩니다.
+    - 새 버전이 현재 활성 버전이 됩니다.
+    """
+    # 계약서 소유권 확인
+    stmt = select(Contract).where(
+        Contract.id == contract_id,
+        Contract.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="계약서를 찾을 수 없습니다.")
+
+    # 현재 최대 버전 번호 조회
+    max_version_stmt = select(func.max(DocumentVersion.version_number)).where(
+        DocumentVersion.contract_id == contract_id
+    )
+    max_result = await db.execute(max_version_stmt)
+    max_version = max_result.scalar() or 0
+
+    # 기존 버전들 비활성화
+    from sqlalchemy import update
+    update_stmt = update(DocumentVersion).where(
+        DocumentVersion.contract_id == contract_id
+    ).values(is_current=False)
+    await db.execute(update_stmt)
+
+    # 새 버전 생성
+    new_version = DocumentVersion(
+        contract_id=contract_id,
+        version_number=max_version + 1,
+        content=version_data.content,
+        changes=version_data.changes,
+        change_summary=version_data.change_summary,
+        is_current=True,
+        created_by=version_data.created_by
+    )
+    db.add(new_version)
+    await db.commit()
+    await db.refresh(new_version)
+
+    return new_version
+
+
+@router.get("/{contract_id}/versions/{version_number}",
+            response_model=DocumentVersionResponse,
+            summary="특정 버전 조회")
+async def get_contract_version(
+    contract_id: int,
+    version_number: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    **[보호됨]** 특정 버전의 문서 내용을 조회합니다.
+    """
+    # 계약서 소유권 확인
+    stmt = select(Contract).where(
+        Contract.id == contract_id,
+        Contract.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="계약서를 찾을 수 없습니다.")
+
+    # 버전 조회
+    version_stmt = select(DocumentVersion).where(
+        DocumentVersion.contract_id == contract_id,
+        DocumentVersion.version_number == version_number
+    )
+    version_result = await db.execute(version_stmt)
+    version = version_result.scalar_one_or_none()
+
+    if not version:
+        raise HTTPException(status_code=404, detail="해당 버전을 찾을 수 없습니다.")
+
+    return version
+
+
+@router.post("/{contract_id}/versions/{version_number}/restore",
+             response_model=DocumentVersionResponse,
+             summary="특정 버전으로 복원")
+async def restore_contract_version(
+    contract_id: int,
+    version_number: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    **[보호됨]** 특정 버전의 내용을 현재 버전으로 복원합니다.
+
+    - 선택한 버전의 내용으로 새 버전이 생성됩니다.
+    - 원래 버전은 그대로 유지됩니다 (히스토리 보존).
+    """
+    # 계약서 소유권 확인
+    stmt = select(Contract).where(
+        Contract.id == contract_id,
+        Contract.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="계약서를 찾을 수 없습니다.")
+
+    # 복원할 버전 조회
+    version_stmt = select(DocumentVersion).where(
+        DocumentVersion.contract_id == contract_id,
+        DocumentVersion.version_number == version_number
+    )
+    version_result = await db.execute(version_stmt)
+    source_version = version_result.scalar_one_or_none()
+
+    if not source_version:
+        raise HTTPException(status_code=404, detail="해당 버전을 찾을 수 없습니다.")
+
+    # 현재 최대 버전 번호 조회
+    max_version_stmt = select(func.max(DocumentVersion.version_number)).where(
+        DocumentVersion.contract_id == contract_id
+    )
+    max_result = await db.execute(max_version_stmt)
+    max_version = max_result.scalar() or 0
+
+    # 기존 버전들 비활성화
+    from sqlalchemy import update
+    update_stmt = update(DocumentVersion).where(
+        DocumentVersion.contract_id == contract_id
+    ).values(is_current=False)
+    await db.execute(update_stmt)
+
+    # 복원 버전 생성
+    restored_version = DocumentVersion(
+        contract_id=contract_id,
+        version_number=max_version + 1,
+        content=source_version.content,
+        changes={"restored_from": version_number},
+        change_summary=f"버전 {version_number}에서 복원됨",
+        is_current=True,
+        created_by="user"
+    )
+    db.add(restored_version)
+    await db.commit()
+    await db.refresh(restored_version)
+
+    return restored_version

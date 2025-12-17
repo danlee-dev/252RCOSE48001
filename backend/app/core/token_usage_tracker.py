@@ -24,24 +24,48 @@ import logging
 TOKEN_LOG_DIR = Path(__file__).parent.parent.parent / "logs" / "token_usage"
 TOKEN_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# 모델별 가격 (USD per million tokens) - 2025-12 기준
-MODEL_PRICING = {
-    # OpenAI
-    "gpt-4.1-mini": {"input": 0.40, "output": 1.60, "cached_input": 0.10, "provider": "openai"},
-    "gpt-5-mini": {"input": 0.30, "output": 1.50, "cached_input": 0.03, "provider": "openai"},
-    "gpt-5": {"input": 1.25, "output": 10.00, "cached_input": 0.125, "provider": "openai"},
-    "gpt-4o": {"input": 2.50, "output": 10.00, "cached_input": 1.25, "provider": "openai"},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60, "cached_input": 0.075, "provider": "openai"},
-    "o1": {"input": 15.00, "output": 60.00, "cached_input": 7.50, "provider": "openai"},
-    "o3-mini": {"input": 1.10, "output": 4.40, "cached_input": 0.55, "provider": "openai"},
-    # Gemini
-    "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40, "cached_input": 0.025, "provider": "google"},
-    "gemini-2.5-flash": {"input": 0.30, "output": 2.50, "cached_input": 0.075, "provider": "google"},
-    "gemini-2.5-pro": {"input": 2.00, "output": 12.00, "cached_input": 0.50, "provider": "google"},
-}
+# 가격 정보 JSON 파일 경로
+PRICING_JSON_PATH = Path(__file__).parent / "model_pricing.json"
 
-# 기본 모델 (가격 정보 없을 때)
-DEFAULT_PRICING = {"input": 0.50, "output": 2.00, "cached_input": 0.125, "provider": "unknown"}
+
+def load_model_pricing() -> tuple[dict, dict]:
+    """
+    JSON 파일에서 모델 가격 정보를 로드합니다.
+
+    Returns:
+        tuple: (MODEL_PRICING dict, DEFAULT_PRICING dict)
+    """
+    try:
+        with open(PRICING_JSON_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # provider별 가격을 flat한 딕셔너리로 변환
+        pricing = {}
+
+        # OpenAI 모델
+        for model, prices in data.get("openai", {}).items():
+            pricing[model] = {**prices, "provider": "openai"}
+
+        # Google 모델
+        for model, prices in data.get("google", {}).items():
+            pricing[model] = {**prices, "provider": "google"}
+
+        # 기본 가격
+        default = data.get("default", {"input": 0.50, "output": 2.00, "cached_input": 0.125})
+        default["provider"] = "unknown"
+
+        return pricing, default
+
+    except FileNotFoundError:
+        logging.warning(f"Pricing file not found: {PRICING_JSON_PATH}, using defaults")
+        return {}, {"input": 0.50, "output": 2.00, "cached_input": 0.125, "provider": "unknown"}
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse pricing JSON: {e}")
+        return {}, {"input": 0.50, "output": 2.00, "cached_input": 0.125, "provider": "unknown"}
+
+
+# 모델별 가격 로드
+MODEL_PRICING, DEFAULT_PRICING = load_model_pricing()
 
 
 @dataclass
@@ -299,7 +323,7 @@ class TokenUsageTracker:
 
         # 총계 계산
         summary.total_tokens = summary.total_input_tokens + summary.total_output_tokens
-        summary.total_cost_krw = round(summary.total_cost_usd * 1400, 2)  # USD to KRW
+        summary.total_cost_krw = round(summary.total_cost_usd * 1450, 2)  # USD to KRW
 
         # 비용 반올림
         summary.total_input_cost_usd = round(summary.total_input_cost_usd, 6)

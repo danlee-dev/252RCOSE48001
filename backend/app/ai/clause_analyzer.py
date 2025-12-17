@@ -1,22 +1,26 @@
 """
-LLM-based Clause Analyzer with CRAG Integration
-- LLM 기반 계약서 조항 분할
+LLM-based Clause Analyzer with CRAG Integration + Neuro-Symbolic Calculation
+- LLM 기반 계약서 조항 분할 (Neuro)
 - 조항별 CRAG 검색으로 법률 컨텍스트 확보
 - LLM이 법률 컨텍스트 기반으로 위반 여부 판단
+- Python 기반 정밀 체불액 계산 (Symbolic)
 
 Flow:
-1. LLM이 계약서를 조항 단위로 분할 + 값 추출
+1. LLM이 계약서를 조항 단위로 분할 + 값 추출 (Neuro)
 2. 각 조항에 대해 CRAG 검색 (Graph + Vector DB)
 3. LLM이 CRAG 결과를 컨텍스트로 위반 분석
-4. 결과 통합
+4. Python으로 체불액 정밀 계산 (Symbolic)
+5. 결과 통합
 """
 
 import os
 import json
 import re
 import time
+import difflib
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
+from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from datetime import datetime
 
@@ -75,7 +79,9 @@ class ClauseViolation:
     legal_basis: str                # 법적 근거
     current_value: Any              # 현재 계약서 값
     legal_standard: Any             # 법적 기준 값
-    suggestion: str                 # 수정 제안
+    suggestion: str                 # 수정 제안 설명
+    suggested_text: str = ""        # 수정된 조항 텍스트 (대체용)
+    matched_text: str = ""          # 하이라이팅할 실제 텍스트 (텍스트 기반 매칭용)
     crag_sources: List[str] = field(default_factory=list)  # 참조한 법률 출처
     confidence: float = 0.0         # 판단 신뢰도
 
@@ -88,9 +94,13 @@ class ClauseViolation:
             "current_value": self.current_value,
             "legal_standard": self.legal_standard,
             "suggestion": self.suggestion,
+            "suggested_text": self.suggested_text,
+            "matched_text": self.matched_text,  # 하이라이팅용 텍스트
             "clause_number": self.clause.clause_number,
             "clause_title": self.clause.title,
-            "original_text": self.clause.original_text[:200],
+            "original_text": self.clause.original_text,
+            "start_index": self.clause.position.get("start", -1),
+            "end_index": self.clause.position.get("end", -1),
             "sources": self.crag_sources,
             "confidence": self.confidence
         }
@@ -126,6 +136,307 @@ class ClauseAnalysisResult:
         }
 
 
+class NeuroSymbolicCalculator:
+    """
+    Neuro-Symbolic 체불액 계산기
+    - LLM이 추출한 숫자를 기반으로 Python으로 정밀 계산
+    - LegalStressTest의 계산 로직을 활용
+    """
+
+    # 2025년 법정 기준
+    MINIMUM_WAGE_2025 = 10_030              # 시급
+    LEGAL_DAILY_HOURS = 8                   # 법정 일일 근로시간
+    LEGAL_WEEKLY_HOURS = 40                 # 법정 주간 근로시간
+    LEGAL_MONTHLY_HOURS = 209               # 법정 월간 근로시간 (주휴 포함)
+    OVERTIME_RATE = Decimal("1.5")          # 연장근로 50% 가산
+    NIGHT_RATE = Decimal("1.5")             # 야간근로 50% 가산 (22시~06시)
+    BREAK_TIME_4_HOURS = 30                 # 4시간 초과 시 30분 휴게
+    BREAK_TIME_8_HOURS = 60                 # 8시간 초과 시 60분 휴게
+
+    @dataclass
+    class ContractData:
+        """추출된 계약서 데이터"""
+        monthly_salary: int = 0             # 월급
+        daily_hours: float = 8.0            # 일일 근로시간
+        weekly_hours: float = 40.0          # 주간 근로시간
+        work_days_per_week: int = 0         # 주간 근무일수 (0 = 미추출)
+        break_minutes: int = 60             # 휴게시간 (분)
+        start_time: str = "09:00"           # 출근 시간
+        end_time: str = "18:00"             # 퇴근 시간
+        has_bonus: bool = False             # 상여금 유무
+        has_allowances: bool = False        # 수당 유무
+        is_inclusive_wage: bool = False     # 포괄임금제 여부
+
+    @dataclass
+    class CalculationResult:
+        """계산 결과"""
+        actual_hourly_wage: int = 0         # 실제 시급
+        legal_hourly_wage: int = 0          # 법정 최저시급
+        is_minimum_wage_violation: bool = False
+        minimum_wage_shortage: int = 0      # 시급 부족분
+        monthly_minimum_wage_shortage: int = 0  # 월간 최저임금 부족분
+        overtime_hours_weekly: float = 0    # 주간 연장근로시간
+        overtime_pay_shortage: int = 0      # 연장근로수당 미지급분 (월)
+        break_time_violation: bool = False  # 휴게시간 위반 여부
+        total_monthly_underpayment: int = 0 # 총 월간 체불액
+        calculation_breakdown: Dict[str, Any] = field(default_factory=dict)
+
+    def extract_contract_data(self, clauses: List['ExtractedClause']) -> 'NeuroSymbolicCalculator.ContractData':
+        """
+        LLM이 추출한 조항들에서 계산에 필요한 숫자 추출 (Neuro 결과 활용)
+        """
+        data = self.ContractData()
+
+        for clause in clauses:
+            values = clause.extracted_values
+
+            if clause.clause_type == ClauseType.SALARY:
+                # 월급 추출 (값이 있을 때만 업데이트 - 여러 임금 조항 중 유효한 값만 사용)
+                salary = self._safe_int(values.get("base_salary") or values.get("monthly_salary") or values.get("total_salary", 0))
+                if salary > 0 and data.monthly_salary == 0:
+                    data.monthly_salary = salary
+
+            elif clause.clause_type == ClauseType.WORK_HOURS:
+                # 근로시간 추출
+                extracted_daily_hours = self._safe_float(values.get("daily_hours", 0))
+                data.weekly_hours = self._safe_float(values.get("weekly_hours", 40.0))
+                data.start_time = values.get("start_time", "09:00")
+                data.end_time = values.get("end_time", "18:00")
+
+                # 시간대에서 일일 근로시간 계산 (항상 계산해서 검증)
+                if data.start_time and data.end_time:
+                    calculated_hours = self._calculate_hours_from_time(data.start_time, data.end_time)
+                    if calculated_hours > 0:
+                        # 계산된 시간이 추출된 시간과 다르면 계산된 값 우선 (더 정확)
+                        if extracted_daily_hours > 0 and abs(extracted_daily_hours - calculated_hours) > 1:
+                            print(f">>> [HOURS] Correcting daily_hours: {extracted_daily_hours} -> {calculated_hours}")
+                        data.daily_hours = calculated_hours
+                    elif extracted_daily_hours > 0:
+                        data.daily_hours = extracted_daily_hours
+                elif extracted_daily_hours > 0:
+                    data.daily_hours = extracted_daily_hours
+
+                # 근무일수도 함께 추출 시도 (WORK_HOURS에 포함된 경우)
+                work_days = self._safe_int(values.get("work_days_per_week") or values.get("days_per_week", 0))
+                if work_days > 0:
+                    data.work_days_per_week = work_days
+
+            elif clause.clause_type == ClauseType.BREAK_TIME:
+                # 휴게시간 추출
+                data.break_minutes = self._safe_int(values.get("break_minutes", 60))
+
+            elif clause.clause_type == ClauseType.WORK_DAYS:
+                # 근무일수 추출
+                work_days = self._safe_int(values.get("work_days_per_week") or values.get("days_per_week", 0))
+                if work_days > 0:
+                    data.work_days_per_week = work_days
+                else:
+                    # 텍스트에서 근무일수 패턴 추출
+                    work_days_from_text = self._extract_work_days_from_text(clause.original_text)
+                    if work_days_from_text > 0:
+                        data.work_days_per_week = work_days_from_text
+
+            elif clause.clause_type == ClauseType.ALLOWANCES:
+                # 수당/포괄임금 정보
+                data.has_allowances = True
+                data.is_inclusive_wage = values.get("is_inclusive", False)
+
+            elif clause.clause_type == ClauseType.BONUS:
+                data.has_bonus = values.get("has_bonus", False)
+
+        # 근무일수가 미추출(0)이면 전체 조항 텍스트에서 추출 시도
+        if data.work_days_per_week == 0:
+            for clause in clauses:
+                work_days_from_text = self._extract_work_days_from_text(clause.original_text)
+                if work_days_from_text > 0:
+                    print(f">>> [WORK_DAYS] Extracted from text: {work_days_from_text} days/week")
+                    data.work_days_per_week = work_days_from_text
+                    break
+
+        # 여전히 미추출이면 기본값 5일 사용
+        if data.work_days_per_week == 0:
+            print(f">>> [WORK_DAYS] Using default: 5 days/week")
+            data.work_days_per_week = 5
+
+        # 주간 근로시간 계산 (명시되지 않은 경우)
+        if data.weekly_hours == 40.0:
+            calculated_weekly = data.daily_hours * data.work_days_per_week
+            if calculated_weekly != 40.0:
+                data.weekly_hours = calculated_weekly
+
+        return data
+
+    def calculate_underpayment(self, data: 'NeuroSymbolicCalculator.ContractData') -> 'NeuroSymbolicCalculator.CalculationResult':
+        """
+        Symbolic 계산: Python으로 정밀 체불액 계산
+
+        계산 방식:
+        1. 법정 임금 = (기본근로 + 주휴수당 + 연장근로수당) * 최저시급
+        2. 체불액 = 법정 임금 - 실제 지급 임금
+        """
+        result = self.CalculationResult()
+        result.legal_hourly_wage = self.MINIMUM_WAGE_2025
+        minimum_wage = Decimal(str(self.MINIMUM_WAGE_2025))
+
+        if data.monthly_salary <= 0:
+            return result
+
+        # 1. 실제 근로시간 계산 (휴게시간 제외)
+        break_hours = data.break_minutes / 60.0
+        actual_daily_hours = data.daily_hours - break_hours if data.break_minutes > 0 else data.daily_hours
+        actual_weekly_hours = actual_daily_hours * data.work_days_per_week
+        actual_monthly_hours = Decimal(str(actual_weekly_hours)) * Decimal("4.345")
+
+        # 2. 실제 시급 계산
+        actual_hourly = Decimal(str(data.monthly_salary)) / actual_monthly_hours
+        result.actual_hourly_wage = int(actual_hourly.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+        # 3. 법정 임금 계산 (최저임금 기준)
+        # 3-1. 기본근로 (주 40시간 이내)
+        legal_base_hours_weekly = min(actual_weekly_hours, float(self.LEGAL_WEEKLY_HOURS))
+        legal_base_hours_monthly = Decimal(str(legal_base_hours_weekly)) * Decimal("4.345")
+        legal_base_pay = legal_base_hours_monthly * minimum_wage
+
+        # 3-2. 주휴수당 (주 15시간 이상 근무 시 8시간분)
+        weekly_holiday_hours = Decimal("8") if actual_weekly_hours >= 15 else Decimal("0")
+        weekly_holiday_pay_monthly = weekly_holiday_hours * Decimal("4.345") * minimum_wage
+
+        # 3-3. 연장근로수당 (주 40시간 초과분, 1.5배)
+        overtime_weekly = max(0, actual_weekly_hours - self.LEGAL_WEEKLY_HOURS)
+        result.overtime_hours_weekly = overtime_weekly
+        overtime_monthly_hours = Decimal(str(overtime_weekly)) * Decimal("4.345")
+        overtime_pay = overtime_monthly_hours * minimum_wage * self.OVERTIME_RATE
+
+        # 3-4. 법정 월급 합계
+        legal_monthly_salary = legal_base_pay + weekly_holiday_pay_monthly + overtime_pay
+        legal_monthly_salary_int = int(legal_monthly_salary.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+        # 4. 체불액 계산
+        result.total_monthly_underpayment = max(0, legal_monthly_salary_int - data.monthly_salary)
+
+        # 최저임금 위반 여부 판단
+        if actual_hourly < minimum_wage:
+            result.is_minimum_wage_violation = True
+            shortage_per_hour = minimum_wage - actual_hourly
+            result.minimum_wage_shortage = int(shortage_per_hour.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+            # 최저임금 미달분 = 법정임금 - 실제임금 중 기본급+주휴 부분
+            result.monthly_minimum_wage_shortage = max(0, int(legal_base_pay + weekly_holiday_pay_monthly) - data.monthly_salary)
+
+        # 연장근로수당 미지급분 (포괄임금제 아닌 경우)
+        if overtime_weekly > 0 and not data.is_inclusive_wage:
+            result.overtime_pay_shortage = int(overtime_pay.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+        # 5. 휴게시간 위반 검사
+        if data.daily_hours > 8 and data.break_minutes < self.BREAK_TIME_8_HOURS:
+            result.break_time_violation = True
+        elif data.daily_hours > 4 and data.break_minutes < self.BREAK_TIME_4_HOURS:
+            result.break_time_violation = True
+
+        # 6. 계산 상세 내역
+        result.calculation_breakdown = {
+            "input": {
+                "monthly_salary": data.monthly_salary,
+                "daily_hours": data.daily_hours,
+                "break_minutes": data.break_minutes,
+                "work_days_per_week": data.work_days_per_week,
+            },
+            "calculated": {
+                "actual_daily_hours": float(actual_daily_hours),
+                "actual_weekly_hours": float(actual_weekly_hours),
+                "actual_monthly_hours": float(actual_monthly_hours),
+                "actual_hourly_wage": result.actual_hourly_wage,
+            },
+            "legal_standards": {
+                "minimum_wage": self.MINIMUM_WAGE_2025,
+                "legal_base_hours_monthly": float(legal_base_hours_monthly),
+                "weekly_holiday_hours": float(weekly_holiday_hours),
+                "overtime_hours_weekly": overtime_weekly,
+                "overtime_hours_monthly": float(overtime_monthly_hours),
+            },
+            "legal_pay": {
+                "base_pay": int(legal_base_pay),
+                "weekly_holiday_pay": int(weekly_holiday_pay_monthly),
+                "overtime_pay": int(overtime_pay),
+                "total_legal_salary": legal_monthly_salary_int,
+            },
+            "shortage": {
+                "minimum_wage_shortage_per_hour": result.minimum_wage_shortage,
+                "total_monthly_underpayment": result.total_monthly_underpayment,
+                "annual_underpayment": result.total_monthly_underpayment * 12,
+            }
+        }
+
+        return result
+
+    def _calculate_hours_from_time(self, start_time: str, end_time: str) -> float:
+        """출퇴근 시간에서 근로시간 계산"""
+        try:
+            start_parts = start_time.replace("시", ":").replace("분", "").split(":")
+            end_parts = end_time.replace("시", ":").replace("분", "").split(":")
+
+            start_hour = int(start_parts[0].strip())
+            start_min = int(start_parts[1].strip()) if len(start_parts) > 1 else 0
+            end_hour = int(end_parts[0].strip())
+            end_min = int(end_parts[1].strip()) if len(end_parts) > 1 else 0
+
+            total_minutes = (end_hour * 60 + end_min) - (start_hour * 60 + start_min)
+            return total_minutes / 60.0 if total_minutes > 0 else 0
+        except (ValueError, IndexError):
+            return 0
+
+    def _extract_work_days_from_text(self, text: str) -> int:
+        """텍스트에서 근무일수 패턴 추출"""
+        import re
+        if not text:
+            return 0
+
+        # 패턴 1: "매주 N일 근무" 또는 "주 N일"
+        match = re.search(r'(?:매주|주)\s*(\d+)\s*일\s*(?:근무)?', text)
+        if match:
+            return int(match.group(1))
+
+        # 패턴 2: "N일 근무" (월~토 같은 요일 범위와 함께)
+        match = re.search(r'(\d+)\s*일\s*근무', text)
+        if match:
+            return int(match.group(1))
+
+        # 패턴 3: 요일 범위에서 추론 (월~토 = 6일, 월~금 = 5일)
+        day_ranges = {
+            r'월\s*[~\-]\s*토': 6,
+            r'월\s*[~\-]\s*금': 5,
+            r'월\s*[~\-]\s*일': 7,
+            r'월요일\s*[~\-]\s*토요일': 6,
+            r'월요일\s*[~\-]\s*금요일': 5,
+        }
+        for pattern, days in day_ranges.items():
+            if re.search(pattern, text):
+                return days
+
+        return 0
+
+    def _safe_int(self, value: Any) -> int:
+        """안전하게 정수 변환"""
+        if value is None:
+            return 0
+        try:
+            if isinstance(value, str):
+                value = value.replace(",", "").replace("원", "").strip()
+            return int(float(value))
+        except (ValueError, TypeError):
+            return 0
+
+    def _safe_float(self, value: Any) -> float:
+        """안전하게 실수 변환"""
+        if value is None:
+            return 0.0
+        try:
+            if isinstance(value, str):
+                value = value.replace(",", "").strip()
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+
 class LLMClauseAnalyzer:
     """
     LLM 기반 조항 분석기
@@ -136,16 +447,29 @@ class LLMClauseAnalyzer:
     """
 
     # 조항 분할 및 값 추출 프롬프트
-    CLAUSE_EXTRACTION_PROMPT = """당신은 한국 근로계약서 분석 전문가입니다.
-다음 근로계약서를 분석하여 각 조항을 구조화된 형식으로 추출하세요.
+    CLAUSE_EXTRACTION_PROMPT = """당신은 계약서 분석 전문가입니다.
+다음 계약서를 분석하여 각 조항을 구조화된 형식으로 추출하세요.
 
-[근로계약서]
+[계약서]
 {contract_text}
 
-[지시사항]
-1. 각 조항을 개별적으로 식별
-2. 조항별 핵심 값 추출 (숫자, 날짜, 시간 등)
-3. 조항 유형 분류
+[중요 지시사항]
+1. 계약서의 모든 조항을 빠짐없이 추출하세요. 하나라도 누락하면 안 됩니다.
+2. clause_number는 반드시 계약서 원문에 표기된 조항 번호를 그대로 사용하세요! (예: 원문에 "6. 임금"이면 clause_number는 "6")
+3. 하나의 조항에 여러 세부 내용이 있으면 (예: 6. 임금 안에 급여, 지급일, 지급방법이 있을 때) 같은 clause_number로 여러 개 추출하되, clause_type만 다르게 하세요.
+4. 조항 유형이 불명확하면 "기타"로 분류하되, 반드시 추출하세요.
+5. original_text는 계약서 원문을 글자 그대로 복사하세요. 절대 요약/수정하지 마세요!
+
+[조항 유형 분류 기준]
+- 근로시간: 출퇴근 시간, 소정근로시간, 연장근로 관련
+- 휴게시간: 휴식시간, 점심시간 관련
+- 임금: 기본급, 월급, 시급, 급여 관련
+- 수당: 각종 수당, 포괄임금, 제수당 포함 관련
+- 연차휴가: 연차, 유급휴가 관련
+- 사회보험: 4대보험, 국민연금, 건강보험 관련
+- 위약금: 위약금, 손해배상, 벌금, 교육비 반환 관련
+- 해지: 계약해지, 해고, 퇴직 관련
+- 기타: 위 분류에 해당하지 않는 모든 조항 (반드시 추출!)
 
 [응답 형식 - JSON]
 {{
@@ -153,28 +477,32 @@ class LLMClauseAnalyzer:
         {{
             "clause_number": "1",
             "clause_type": "근로개시일/근무장소/업무내용/근로시간/휴게시간/근무일/휴일/임금/상여금/수당/임금지급일/연차휴가/사회보험/계약서교부/위약금/해지/기타",
-            "title": "조항 제목",
-            "original_text": "원문 텍스트",
+            "title": "조항 제목 (없으면 내용 요약)",
+            "original_text": "계약서 원문에서 해당 조항 텍스트를 그대로 복사",
             "extracted_values": {{
                 "key": "value"
             }}
         }}
     ],
     "contract_metadata": {{
-        "employer": "사업주명",
-        "employee": "근로자명",
+        "employer": "사업주/갑",
+        "employee": "근로자/을",
         "contract_date": "계약일",
-        "contract_type": "정규직/계약직/기간제/일용직"
+        "contract_type": "정규직/계약직/기간제/일용직/용역/기타"
     }}
 }}
 
 [추출 예시]
-- 근로시간: {{"start_time": "09:00", "end_time": "18:00", "daily_hours": 8}}
-- 휴게시간: {{"break_minutes": 60, "break_start": "12:00", "break_end": "13:00"}}
+- 근로시간: {{"start_time": "09:00", "end_time": "21:00"}}
+- 근무일: {{"work_days_per_week": 6}}
+- 휴게시간: {{"break_minutes": 60}}
+  (주의: "휴게: 없음"이면 break_minutes: 0)
 - 임금: {{"base_salary": 3200000, "salary_type": "월급"}}
-- 수당: {{"meal_allowance": 200000, "position_allowance": 300000}}
+- 수당: {{"total_allowances": 500000, "meal_allowance": 200000, "is_inclusive": true}}
+- 위약금: {{"penalty_amount": 1000000, "penalty_condition": "조기퇴사시"}}
 
-모든 숫자는 정수로 추출하세요."""
+모든 숫자는 정수로 추출하세요.
+조항을 하나라도 빠뜨리면 분석에 심각한 오류가 발생합니다!"""
 
     # 조항별 위반 분석 프롬프트 (법적 기준은 CRAG 검색 결과에서 가져옴)
     VIOLATION_ANALYSIS_PROMPT = """당신은 한국 노동법 전문 변호사입니다.
@@ -216,7 +544,7 @@ class LLMClauseAnalyzer:
     "has_violation": true/false,
     "violations": [
         {{
-            "violation_type": "위반 유형 (예: 최저임금_미달, 연장근로_초과, 휴게시간_미부여, 위약금_예정, 전액지급_위반)",
+            "violation_type": "위반 유형을 자연어로 간결하게 작성 (예: 최저임금 미달, 연장근로 초과, 휴게시간 미부여, 위약금 예정 금지 위반, 임금 전액 지급 위반)",
             "severity": "CRITICAL/HIGH/MEDIUM/LOW/INFO",
             "description": "구체적 위반 내용 설명",
             "legal_basis": "법조문만 기재 (예: 근로기준법 제50조)",
@@ -237,6 +565,8 @@ class LLMClauseAnalyzer:
 - legal_basis와 suggestion은 반드시 다른 내용이어야 합니다!
 - legal_basis: 법률명과 조항 번호만 (예: "근로기준법 제20조")
 - suggestion: 계약서를 어떻게 수정해야 하는지 구체적 방법 (예: "위약금 조항을 삭제하고, 실제 발생한 손해에 한해 배상 청구 가능하도록 수정")
+- description: 반드시 자연어 문장으로 작성! JSON 키-값 형식 (예: "key:value", "field_name:true") 절대 사용 금지. 일반인이 이해할 수 있는 한국어 문장으로 설명하세요. **핵심 키워드나 수치는 마크다운 볼드(**)로 강조**하세요. (예: "**휴게시간 0분**으로 명시되어 있어 **근로기준법 제54조** 위반입니다.")
+- current_value: 계약서에 명시된 실제 값을 자연어로 기재 (예: "수습기간 3개월, 4대보험 미가입")
 
 위반이 없으면 violations를 빈 배열로 반환하세요."""
 
@@ -252,6 +582,12 @@ class LLMClauseAnalyzer:
 
 [관련 법령]
 {law_context}
+
+[이미 발견된 위반 사항 - 중복 탐지 금지!]
+{detected_violations}
+
+위 목록에 이미 포함된 위반 사항은 절대 다시 보고하지 마세요.
+종합 분석에서는 개별 조항 분석에서 발견할 수 없는, 여러 조항을 종합해야만 알 수 있는 위반만 보고하세요.
 
 [분석 포인트]
 1. 최저임금 위반 여부 (월급여 / 총 근로시간으로 시급 계산)
@@ -270,9 +606,9 @@ class LLMClauseAnalyzer:
 {{
     "holistic_violations": [
         {{
-            "violation_type": "위반 유형",
+            "violation_type": "위반 유형을 자연어로 간결하게 작성 (예: 최저임금 미달, 주 52시간 초과, 포괄임금제 적법성 문제)",
             "severity": "CRITICAL/HIGH/MEDIUM/LOW",
-            "description": "구체적 설명 (계산 과정 포함)",
+            "description": "구체적 설명을 자연어 문장으로 작성. JSON 키-값 형식 절대 금지!",
             "legal_basis": "법조문만 기재 (예: 근로기준법 제50조)",
             "current_value": "현재 값 (계산 결과)",
             "legal_standard": "법적 기준",
@@ -291,9 +627,85 @@ class LLMClauseAnalyzer:
 }}
 
 [중요 주의사항]
+- violation_type: 자연어로 간결하게 (예: "최저임금 미달", "주 52시간 초과"). 언더스코어(_) 사용 금지!
+- description: 자연어 문장으로 작성. JSON 키-값 형식 (예: "key:value", "field:true") 절대 금지! **핵심 수치와 키워드는 마크다운 볼드(**)로 강조**하세요. (예: "계산된 시급 **8,500원**은 **2025년 최저시급 10,030원**에 미달합니다.")
+- current_value: 계약서에 명시된 실제 값을 자연어로 기재 (예: "시급 9,500원", "주 60시간 근무")
 - legal_basis: 법률명과 조항 번호만 (예: "근로기준법 제50조")
-- suggestion: 계약서를 어떻게 수정해야 하는지 구체적인 방법을 문장으로 작성. 법조문을 복사하면 안 됨!
-  예시: "소정근로시간을 주 40시간으로 단축하고, 연장근로 시 가산임금(통상임금의 50% 추가)을 별도 지급하도록 계약서 수정"
+- suggestion: 계약서를 어떻게 수정해야 하는지 구체적인 방법을 문장으로 작성. 법조문을 복사하면 안 됨! **수정이 필요한 핵심 내용은 볼드로 강조**.
+  예시: "**기본급을 3,500,000원 이상으로 인상**하고, **연장근로수당을 별도 지급**하도록 계약서 수정"
+"""
+
+    # 텍스트 매칭 프롬프트 (Gemini 2.5 Flash용)
+    TEXT_MATCHING_PROMPT = """당신은 계약서 텍스트 분석 전문가입니다.
+아래 계약서 전문과 분석된 위반 조항 목록을 보고, 각 위반 조항에 해당하는 계약서 내 **정확한 텍스트 위치**를 찾아주세요.
+
+[계약서 전문]
+{contract_text}
+
+[분석된 위반 조항 목록]
+{violations_list}
+
+[지시사항]
+각 위반 조항에 대해:
+1. **exact_text**: 계약서에서 해당 위반과 관련된 정확한 문장/구절을 **글자 그대로** 추출하세요.
+   - 이 텍스트는 계약서에서 바로 찾아서 수정안으로 대체할 수 있어야 합니다.
+   - 불필요하게 길게 추출하지 마세요. 수정이 필요한 핵심 부분만 추출합니다.
+   - 띄어쓰기, 줄바꿈, 특수문자를 정확히 유지하세요.
+
+2. **replacement_text**: 해당 부분을 법적 기준에 맞게 수정한 텍스트를 작성하세요.
+   - 원본의 문맥과 형식을 유지하면서 위반 내용만 수정합니다.
+
+[응답 형식 - JSON]
+{{
+    "matches": [
+        {{
+            "index": 0,
+            "exact_text": "계약서에서 찾은 정확한 원본 텍스트",
+            "replacement_text": "법적 기준에 맞게 수정된 텍스트"
+        }}
+    ]
+}}
+
+[중요]
+- exact_text는 반드시 계약서 전문에 **그대로** 존재하는 텍스트여야 합니다.
+- 요약하거나 수정하지 마세요.
+- 찾을 수 없는 경우 해당 인덱스는 응답에서 제외하세요.
+"""
+
+    # 동일 조항 위반 병합 프롬프트
+    VIOLATION_MERGE_PROMPT = """당신은 한국 노동법 전문 변호사입니다.
+동일한 계약서 조항에서 발생한 여러 위반 사항들을 하나로 통합해주세요.
+
+[원본 조항 텍스트]
+{original_text}
+
+[위반 사항 목록]
+{violations_json}
+
+[통합 지시사항]
+1. 여러 위반 사유를 하나의 종합적인 설명으로 통합하세요.
+2. 모든 법적 근거를 포함하세요.
+3. 수정 제안을 하나로 통합하여, 모든 위반 사항을 해결하는 하나의 수정안을 작성하세요.
+4. 수정안(suggested_text)은 원본 조항의 형식을 유지하면서 모든 문제를 해결해야 합니다.
+5. 심각도는 가장 높은 것을 사용하세요.
+
+[응답 형식 - JSON]
+{{
+    "merged_violation": {{
+        "violation_type": "통합된 위반 유형 (자연어, 간결하게)",
+        "severity": "CRITICAL/HIGH/MEDIUM/LOW (가장 높은 심각도)",
+        "description": "모든 위반 사유를 포함한 종합 설명. **핵심 키워드는 볼드**로 강조. 자연어 문장으로 작성.",
+        "legal_basis": "모든 관련 법조문 나열 (예: 근로기준법 제54조, 제56조)",
+        "current_value": "현재 계약서의 문제점들",
+        "legal_standard": "법적 기준들",
+        "suggestion": "모든 문제를 해결하는 종합 수정 방법. 구체적으로 작성.",
+        "suggested_text": "원본 조항을 대체할 수정된 조항 전문. 모든 위반 사항이 해결된 버전."
+    }}
+}}
+
+[중요]
+- suggested_text는 원본 조항의 문맥과 형식을 유지하면서 모든 위반 사항을 해결해야 합니다.
+- 여러 수정안을 하나로 병합하되, 서로 충돌하지 않도록 통합하세요.
 """
 
     def __init__(
@@ -301,7 +713,8 @@ class LLMClauseAnalyzer:
         crag: Optional[Any] = None,
         llm_client: Optional[Any] = None,
         model: str = None,
-        enable_crag: bool = True
+        enable_crag: bool = True,
+        pipeline_logger: Optional[Any] = None
     ):
         """
         Args:
@@ -309,12 +722,14 @@ class LLMClauseAnalyzer:
             llm_client: OpenAI 클라이언트
             model: 사용할 LLM 모델 (기본값: settings.LLM_REASONING_MODEL)
             enable_crag: CRAG 검색 활성화 여부
+            pipeline_logger: PipelineLogger 인스턴스 (상세 로깅용)
         """
         self.crag = crag
         # 모델 기본값: settings에서 가져옴
-        self.model = model if model else settings.LLM_REASONING_MODEL  # gpt-5-mini
+        self.model = model if model else settings.LLM_CLAUSE_ANALYZER_MODEL
         self.enable_crag = enable_crag
         self.contract_id: Optional[str] = None  # 토큰 추적용
+        self.pipeline_logger = pipeline_logger  # 상세 로깅용
 
         if llm_client is None:
             try:
@@ -339,10 +754,267 @@ class LLMClauseAnalyzer:
         if self.crag and hasattr(self.crag, 'neo4j_driver'):
             self.neo4j_driver = self.crag.neo4j_driver
 
+        # Gemini client for text matching (lazy loading)
+        self._gemini_model = None
+        self.location_model = settings.LLM_LOCATION_MODEL  # gemini-2.5-flash
+
+        # Gemini safety settings (완전 완화 - 계약서 분석은 합법적 용도)
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+
+        # Neuro-Symbolic 계산기 (LLM 대신 Python으로 정밀 체불액 계산)
+        self.neuro_symbolic_calculator = NeuroSymbolicCalculator()
+
+    @property
+    def gemini_model(self):
+        """Gemini 모델 (lazy loading for text matching)"""
+        if self._gemini_model is None:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                self._gemini_model = genai.GenerativeModel(self.location_model)
+            except ImportError:
+                print("google-generativeai package not installed")
+                self._gemini_model = None
+            except Exception as e:
+                print(f"Gemini initialization error: {e}")
+                self._gemini_model = None
+        return self._gemini_model
+
     def _is_reasoning_model(self) -> bool:
         """reasoning 모델 여부 확인 (temperature 미지원)"""
         reasoning_keywords = ["o1", "o3", "gpt-5"]
         return any(kw in self.model.lower() for kw in reasoning_keywords)
+
+    def _refine_text_matching(
+        self,
+        contract_text: str,
+        violations: List[ClauseViolation]
+    ) -> None:
+        """
+        Gemini 2.5 Flash를 사용하여 위반 조항의 정확한 텍스트 매칭 수행
+
+        Args:
+            contract_text: 전체 계약서 텍스트
+            violations: 분석된 위반 조항 목록 (in-place 수정)
+        """
+        if not violations or self.gemini_model is None:
+            print(">>> [TEXT_MATCHING] Skipped: no violations or Gemini not available")
+            return
+
+        try:
+            # 위반 조항 목록 생성 (인덱스 포함)
+            violations_list = []
+            for i, v in enumerate(violations):
+                violations_list.append(
+                    f"[{i}] 위반 유형: {v.violation_type}\n"
+                    f"    조항 번호: {v.clause.clause_number}\n"
+                    f"    설명: {v.description}\n"
+                    f"    수정 제안: {v.suggestion}"
+                )
+
+            violations_text = "\n\n".join(violations_list)
+
+            # 프롬프트 생성
+            prompt = self.TEXT_MATCHING_PROMPT.format(
+                contract_text=contract_text[:12000],  # 토큰 제한
+                violations_list=violations_text
+            )
+
+            # Gemini API 호출
+            llm_start = time.time()
+            response = self.gemini_model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0.1,
+                    "response_mime_type": "application/json"
+                },
+                safety_settings=self.safety_settings
+            )
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if self.contract_id and hasattr(response, 'usage_metadata'):
+                usage = response.usage_metadata
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="clause_analyzer.text_matching",
+                    model=self.location_model,
+                    input_tokens=getattr(usage, 'prompt_token_count', 0),
+                    output_tokens=getattr(usage, 'candidates_token_count', 0),
+                    cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                    duration_ms=llm_duration
+                )
+
+            # 응답 파싱
+            result_text = response.text.strip()
+            # JSON 추출 (코드 블록 제거)
+            if result_text.startswith("```"):
+                result_text = re.sub(r'^```(?:json)?\s*', '', result_text)
+                result_text = re.sub(r'\s*```$', '', result_text)
+
+            result = json.loads(result_text)
+            matches = result.get("matches", [])
+
+            print(f">>> [TEXT_MATCHING] Found {len(matches)} matches from Gemini")
+
+            # 위반 조항에 매칭 결과 적용
+            for match in matches:
+                idx = match.get("index")
+                exact_text = match.get("exact_text", "")
+                replacement_text = match.get("replacement_text", "")
+
+                if idx is None or idx >= len(violations):
+                    continue
+
+                # 계약서에서 exact_text가 실제로 존재하는지 검증
+                if exact_text and exact_text in contract_text:
+                    violations[idx].matched_text = exact_text
+                    if replacement_text:
+                        violations[idx].suggested_text = replacement_text
+                    print(f">>> [TEXT_MATCHING] Matched violation {idx}: '{exact_text[:50]}...'")
+                else:
+                    # 정확히 일치하지 않으면 fuzzy matching 시도
+                    best_match = self._fuzzy_find_text(contract_text, exact_text)
+                    if best_match:
+                        violations[idx].matched_text = best_match
+                        if replacement_text:
+                            violations[idx].suggested_text = replacement_text
+                        print(f">>> [TEXT_MATCHING] Fuzzy matched violation {idx}: '{best_match[:50]}...'")
+                    else:
+                        print(f">>> [TEXT_MATCHING] No match found for violation {idx}")
+
+        except json.JSONDecodeError as e:
+            print(f">>> [TEXT_MATCHING] JSON parse error: {e}")
+        except Exception as e:
+            print(f">>> [TEXT_MATCHING] Error: {e}")
+
+    def _fuzzy_find_text(self, contract_text: str, target_text: str, threshold: float = 0.7) -> Optional[str]:
+        """
+        계약서에서 유사한 텍스트를 찾습니다 (fuzzy matching)
+
+        Args:
+            contract_text: 전체 계약서 텍스트
+            target_text: 찾으려는 텍스트
+            threshold: 최소 유사도 (0-1)
+
+        Returns:
+            찾은 텍스트 또는 None
+        """
+        if not target_text or len(target_text) < 10:
+            return None
+
+        target_len = len(target_text)
+        best_match = None
+        best_ratio = threshold
+
+        # 슬라이딩 윈도우로 유사도 검사
+        step = max(1, target_len // 5)
+        for i in range(0, len(contract_text) - target_len + 1, step):
+            window = contract_text[i:i + target_len]
+            ratio = difflib.SequenceMatcher(None, target_text, window).ratio()
+
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_match = window
+
+        return best_match
+
+    def _find_text_position(
+        self,
+        contract_text: str,
+        clause_text: str,
+        min_ratio: float = 0.5
+    ) -> Dict[str, int]:
+        """
+        계약서 텍스트에서 조항 텍스트의 정확한 위치를 찾습니다.
+
+        Args:
+            contract_text: 전체 계약서 텍스트
+            clause_text: 찾으려는 조항 텍스트
+            min_ratio: 최소 유사도 비율 (fuzzy matching용)
+
+        Returns:
+            {"start": 시작 인덱스, "end": 끝 인덱스} 또는 빈 dict
+        """
+        if not clause_text or not contract_text:
+            return {}
+
+        # 마크다운 기호 제거 헬퍼
+        def strip_markdown(text: str) -> str:
+            text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
+            text = re.sub(r'---\s*Page\s*\d+\s*---', '', text)
+            text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+            text = re.sub(r'\*([^*]+)\*', r'\1', text)
+            return text.strip()
+
+        # 1. 정확한 매칭 시도
+        clause_text_clean = clause_text.strip()
+        idx = contract_text.find(clause_text_clean)
+        if idx != -1:
+            return {"start": idx, "end": idx + len(clause_text_clean)}
+
+        # 2. 공백/줄바꿈 정규화 후 매칭
+        normalized_contract = re.sub(r'\s+', ' ', contract_text)
+        normalized_clause = re.sub(r'\s+', ' ', clause_text_clean)
+        idx = normalized_contract.find(normalized_clause)
+        if idx != -1:
+            ratio = idx / len(normalized_contract)
+            approx_start = int(ratio * len(contract_text))
+            return {"start": approx_start, "end": approx_start + len(clause_text_clean)}
+
+        # 2.5. 마크다운 제거 후 매칭 (PDF 추출 텍스트에 # 기호가 포함될 수 있음)
+        stripped_contract = strip_markdown(contract_text)
+        stripped_clause = strip_markdown(clause_text_clean)
+        if stripped_clause and len(stripped_clause) > 10:
+            idx = stripped_contract.find(stripped_clause)
+            if idx != -1:
+                ratio = idx / max(1, len(stripped_contract))
+                approx_start = int(ratio * len(contract_text))
+                return {"start": max(0, approx_start - 5), "end": min(len(contract_text), approx_start + len(clause_text_clean) + 10)}
+
+        # 3. 조항 번호 기반 매칭 (예: "1. 근로개시일", "## 4. 근로시간")
+        clause_num_match = re.match(r'^(\d+)\.\s*(.+)', clause_text_clean)
+        if clause_num_match:
+            num, rest = clause_num_match.groups()
+            pattern = rf'#*\s*{num}\.\s*{re.escape(rest[:20])}'
+            match = re.search(pattern, contract_text)
+            if match:
+                start = match.start()
+                return {"start": start, "end": min(len(contract_text), start + len(clause_text_clean))}
+
+        # 4. Fuzzy matching으로 가장 유사한 부분 찾기
+        clause_len = len(clause_text_clean)
+        best_match = {"start": -1, "end": -1, "ratio": 0}
+
+        step = max(1, clause_len // 10)
+        for i in range(0, len(contract_text) - clause_len + 1, step):
+            window = contract_text[i:i + clause_len]
+            ratio = difflib.SequenceMatcher(None, clause_text_clean, window).ratio()
+            if ratio > best_match["ratio"]:
+                best_match = {"start": i, "end": i + clause_len, "ratio": ratio}
+
+        # 5. 정밀 검색: best match 주변에서 더 정확한 위치 찾기
+        if best_match["ratio"] >= min_ratio:
+            search_start = max(0, best_match["start"] - step)
+            search_end = min(len(contract_text), best_match["end"] + step)
+
+            for i in range(search_start, search_end):
+                if i + clause_len > len(contract_text):
+                    break
+                window = contract_text[i:i + clause_len]
+                ratio = difflib.SequenceMatcher(None, clause_text_clean, window).ratio()
+                if ratio > best_match["ratio"]:
+                    best_match = {"start": i, "end": i + clause_len, "ratio": ratio}
+
+            if best_match["ratio"] >= min_ratio:
+                return {"start": best_match["start"], "end": best_match["end"]}
+
+        return {}
 
     def _search_by_category(
         self,
@@ -877,27 +1549,8 @@ class LLMClauseAnalyzer:
         # 2. 각 조항별 분석 (병렬 처리)
         total_monthly_underpayment = 0
 
-        # 분석 우선순위가 높은 조항 유형
-        priority_types = [
-            ClauseType.WORK_HOURS,
-            ClauseType.BREAK_TIME,
-            ClauseType.SALARY,
-            ClauseType.ALLOWANCES,
-            ClauseType.ANNUAL_LEAVE,
-            ClauseType.SOCIAL_INSURANCE,
-            ClauseType.PENALTY,
-            ClauseType.TERMINATION,
-            ClauseType.CONTRACT_DELIVERY,
-            ClauseType.HOLIDAYS,
-            ClauseType.WORK_DAYS
-        ]
-
-        # 분석 대상 조항 필터링
-        clauses_to_analyze = [
-            clause for clause in clauses
-            if clause.clause_type in priority_types or
-               self._contains_risk_keywords(clause.original_text)
-        ]
+        # 모든 조항 분석 (LLM이 추출한 조항은 모두 분석 대상)
+        clauses_to_analyze = clauses
 
         # 병렬 처리로 개별 조항 분석
         if clauses_to_analyze:
@@ -917,15 +1570,32 @@ class LLMClauseAnalyzer:
 
         # 3. 종합 분석 (Cross-clause analysis) - 순차 처리 필수
         # 최저임금 계산, 주간 근무시간 검증 등 모든 조항 정보 필요
+        # 이미 발견된 위반 사항을 전달하여 중복 탐지 방지
         holistic_violations, holistic_underpayment = self._holistic_analysis(
-            clauses, contract_text
+            clauses, contract_text, detected_violations=result.violations
         )
         result.violations.extend(holistic_violations)
         total_monthly_underpayment += holistic_underpayment
 
-        # 4. 체불액 계산
-        result.total_underpayment = total_monthly_underpayment
-        result.annual_underpayment = total_monthly_underpayment * 12
+        # 3.5. 동일 조항 위반 병합 (같은 조항에서 여러 위반이 발생한 경우 하나로 통합)
+        if len(result.violations) > 1:
+            result.violations = self._merge_same_clause_violations(result.violations)
+
+        # 4. Neuro-Symbolic 체불액 계산 (LLM 계산 대신 Python으로 정밀 계산)
+        # LLM이 추출한 숫자를 기반으로 Python으로 정확하게 계산
+        contract_data = self.neuro_symbolic_calculator.extract_contract_data(clauses)
+        symbolic_result = self.neuro_symbolic_calculator.calculate_underpayment(contract_data)
+
+        # Symbolic 계산 결과 사용 (LLM 계산 결과는 무시)
+        result.total_underpayment = symbolic_result.total_monthly_underpayment
+        result.annual_underpayment = symbolic_result.total_monthly_underpayment * 12
+
+        # 계산 상세 내역 로깅
+        print(f">>> [NEURO-SYMBOLIC] Calculation breakdown: {symbolic_result.calculation_breakdown}")
+
+        # 5. Gemini 2.5 Flash로 정확한 텍스트 매칭 (하이라이팅용)
+        if result.violations:
+            self._refine_text_matching(contract_text, result.violations)
 
         result.processing_time = time.time() - start_time
 
@@ -979,17 +1649,37 @@ class LLMClauseAnalyzer:
                     duration_ms=llm_duration
                 )
 
-            result = json.loads(response.choices[0].message.content)
+            response_content = response.choices[0].message.content
+            result = json.loads(response_content)
+
+            # 상세 로깅: LLM 프롬프트/응답 전문
+            if self.pipeline_logger:
+                self.pipeline_logger.log_llm_call(
+                    step_name="ClauseExtraction",
+                    model=self.model,
+                    prompt=prompt,
+                    response=response_content,
+                    temperature=0.1 if not self._is_reasoning_model() else 0.0,
+                    duration_ms=llm_duration,
+                    extra={"clause_count": len(result.get("clauses", []))}
+                )
+
             clauses = []
 
             for c in result.get("clauses", []):
                 clause_type = self._map_clause_type(c.get("clause_type", "기타"))
+                original_text = c.get("original_text", "")
+
+                # 원본 텍스트에서 조항 위치 계산
+                position = self._find_text_position(contract_text, original_text)
+
                 clauses.append(ExtractedClause(
                     clause_number=str(c.get("clause_number", "")),
                     clause_type=clause_type,
                     title=c.get("title", ""),
-                    original_text=c.get("original_text", ""),
-                    extracted_values=c.get("extracted_values", {})
+                    original_text=original_text,
+                    extracted_values=c.get("extracted_values", {}),
+                    position=position
                 ))
 
             return clauses
@@ -1039,12 +1729,16 @@ class LLMClauseAnalyzer:
 
                 clause_type = self._infer_clause_type(title)
 
+                # 정규식 매치에서 정확한 위치 추출
+                position = {"start": match.start(), "end": match.end()}
+
                 clauses.append(ExtractedClause(
                     clause_number=clause_num,
                     clause_type=clause_type,
                     title=title,
                     original_text=f"{title}: {content}",
-                    extracted_values=self._extract_values_regex(content, clause_type)
+                    extracted_values=self._extract_values_regex(content, clause_type),
+                    position=position
                 ))
 
             if clauses:
@@ -1188,7 +1882,37 @@ class LLMClauseAnalyzer:
                         duration_ms=llm_duration
                     )
 
-                result = json.loads(response.choices[0].message.content)
+                response_content = response.choices[0].message.content
+                result = json.loads(response_content)
+
+                # 상세 로깅: 조항별 위반 분석 LLM 호출
+                if self.pipeline_logger:
+                    self.pipeline_logger.log_llm_call(
+                        step_name=f"ViolationAnalysis_{clause.clause_number}",
+                        model=self.model,
+                        prompt=prompt,
+                        response=response_content,
+                        temperature=0.1 if not self._is_reasoning_model() else 0.0,
+                        duration_ms=llm_duration,
+                        extra={
+                            "clause_type": clause.clause_type.value,
+                            "has_violation": result.get("has_violation", False),
+                            "violation_count": len(result.get("violations", []))
+                        }
+                    )
+                    # 검색된 법률 컨텍스트도 로깅
+                    self.pipeline_logger.log_retrieval(
+                        step_name=f"LegalContext_{clause.clause_number}",
+                        query=clause.original_text[:200],
+                        results=[
+                            {"type": "law", "content": law_context},
+                            {"type": "precedent", "content": precedent_context},
+                            {"type": "interpretation", "content": interpretation_context},
+                            {"type": "pattern", "content": pattern_context or "없음"}
+                        ],
+                        retrieval_type="hybrid",
+                        extra={"crag_sources": crag_sources}
+                    )
 
                 if result.get("has_violation", False):
                     for v in result.get("violations", []):
@@ -1202,6 +1926,7 @@ class LLMClauseAnalyzer:
                             current_value=v.get("current_value"),
                             legal_standard=v.get("legal_standard"),
                             suggestion=v.get("suggestion", ""),
+                            suggested_text=v.get("suggested_text", ""),
                             crag_sources=crag_sources,
                             confidence=v.get("confidence", 0.8)
                         ))
@@ -1235,16 +1960,160 @@ class LLMClauseAnalyzer:
         ]
         return any(kw in text for kw in risk_keywords)
 
+    def _merge_same_clause_violations(
+        self,
+        violations: List[ClauseViolation]
+    ) -> List[ClauseViolation]:
+        """
+        동일 조항에서 발생한 여러 위반 사항을 하나로 병합
+
+        같은 clause_number를 가진 위반이 2개 이상이면 Gemini Flash로 병합
+        """
+        if not violations:
+            return violations
+
+        # 1. 조항 번호별로 그룹화
+        from collections import defaultdict
+        clause_groups: Dict[str, List[ClauseViolation]] = defaultdict(list)
+        for v in violations:
+            clause_groups[v.clause.clause_number].append(v)
+
+        merged_violations = []
+
+        for clause_num, group in clause_groups.items():
+            if len(group) == 1:
+                # 단일 위반은 그대로 유지
+                merged_violations.append(group[0])
+            else:
+                # 2개 이상이면 병합
+                print(f">>> [MERGE] Merging {len(group)} violations for clause {clause_num}")
+                merged = self._merge_violations_with_llm(group)
+                if merged:
+                    merged_violations.append(merged)
+                else:
+                    # 병합 실패 시 첫 번째 것만 사용
+                    merged_violations.append(group[0])
+
+        return merged_violations
+
+    def _merge_violations_with_llm(
+        self,
+        violations: List[ClauseViolation]
+    ) -> Optional[ClauseViolation]:
+        """
+        Gemini Flash를 사용하여 여러 위반을 하나로 병합
+        """
+        if not violations:
+            return None
+
+        # Gemini 클라이언트 사용 (self.gemini_model - lazy loading)
+        if self.gemini_model is None:
+            print(f">>> [MERGE] Gemini not available")
+            return None
+
+        # 위반 정보를 JSON으로 변환
+        violations_data = []
+        for v in violations:
+            violations_data.append({
+                "violation_type": v.violation_type,
+                "severity": v.severity.value,
+                "description": v.description,
+                "legal_basis": v.legal_basis,
+                "current_value": v.current_value,
+                "legal_standard": v.legal_standard,
+                "suggestion": v.suggestion,
+                "suggested_text": v.suggested_text
+            })
+
+        # 원본 조항 텍스트 (첫 번째 위반에서 가져옴)
+        original_clause = violations[0].clause
+        original_text = original_clause.original_text
+
+        prompt = self.VIOLATION_MERGE_PROMPT.format(
+            original_text=original_text,
+            violations_json=json.dumps(violations_data, ensure_ascii=False, indent=2)
+        )
+
+        llm_start = time.time()
+        try:
+            response = self.gemini_model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0.2,
+                    "response_mime_type": "application/json"
+                },
+                safety_settings=self.safety_settings
+            )
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if self.contract_id and hasattr(response, 'usage_metadata'):
+                usage = response.usage_metadata
+                record_llm_usage(
+                    contract_id=self.contract_id,
+                    module="clause_analyzer.merge_violations",
+                    model=self.location_model,
+                    input_tokens=getattr(usage, 'prompt_token_count', 0),
+                    output_tokens=getattr(usage, 'candidates_token_count', 0),
+                    cached_tokens=getattr(usage, 'cached_content_token_count', 0),
+                    duration_ms=llm_duration
+                )
+
+            # JSON 파싱
+            result_text = response.text.strip()
+            if result_text.startswith("```"):
+                result_text = re.sub(r'^```(?:json)?\s*', '', result_text)
+                result_text = re.sub(r'\s*```$', '', result_text)
+
+            result = json.loads(result_text)
+            merged_data = result.get("merged_violation", {})
+
+            # 병합된 위반 객체 생성
+            severity = ViolationSeverity[merged_data.get("severity", "HIGH")]
+
+            # crag_sources 통합 (모든 위반의 sources 합침)
+            all_sources = []
+            for v in violations:
+                all_sources.extend(v.crag_sources)
+            unique_sources = list(set(all_sources))
+
+            merged_violation = ClauseViolation(
+                clause=original_clause,
+                violation_type=merged_data.get("violation_type", violations[0].violation_type),
+                severity=severity,
+                description=merged_data.get("description", ""),
+                legal_basis=merged_data.get("legal_basis", ""),
+                current_value=merged_data.get("current_value", ""),
+                legal_standard=merged_data.get("legal_standard", ""),
+                suggestion=merged_data.get("suggestion", ""),
+                suggested_text=merged_data.get("suggested_text", ""),
+                crag_sources=unique_sources,
+                confidence=max(v.confidence for v in violations)  # 가장 높은 신뢰도 사용
+            )
+
+            print(f">>> [MERGE] Successfully merged {len(violations)} violations")
+            return merged_violation
+
+        except Exception as e:
+            print(f">>> [MERGE] LLM merge failed: {e}")
+            return None
+
     def _holistic_analysis(
         self,
         clauses: List[ExtractedClause],
-        contract_text: str
+        contract_text: str,
+        detected_violations: List[ClauseViolation] = None
     ) -> Tuple[List[ClauseViolation], int]:
         """
         종합 분석 (Cross-clause analysis)
         - 최저임금 계산 (임금 / 근로시간)
         - 주 52시간 초과 여부
         - 포괄임금제 적법성
+
+        Args:
+            clauses: 추출된 조항 목록
+            contract_text: 계약서 전문
+            detected_violations: 이미 발견된 위반 사항 (중복 방지용)
 
         Returns:
             Tuple[List[ClauseViolation], int]: (위반 목록, 월간 체불액)
@@ -1274,12 +2143,23 @@ class LLMClauseAnalyzer:
         law_docs = self._search_by_category("최저임금 근로시간 주 52시간 포괄임금", "law", limit=3)
         law_context = self._format_context(law_docs, "법령")
 
+        # 3.5. 이미 발견된 위반 사항 요약 (중복 방지용)
+        detected_violations_text = "없음"
+        if detected_violations:
+            violation_summaries = []
+            for v in detected_violations:
+                violation_summaries.append(
+                    f"- 조항 {v.clause.clause_number}: {v.violation_type} ({v.legal_basis})"
+                )
+            detected_violations_text = "\n".join(violation_summaries)
+
         # 4. LLM 종합 분석
         try:
             prompt = self.HOLISTIC_ANALYSIS_PROMPT.format(
                 contract_summary=contract_summary,
                 all_clauses=all_clauses_json,
-                law_context=law_context
+                law_context=law_context,
+                detected_violations=detected_violations_text
             )
 
             llm_start = time.time()
@@ -1319,19 +2199,62 @@ class LLMClauseAnalyzer:
                     duration_ms=llm_duration
                 )
 
-            result = json.loads(response.choices[0].message.content)
+            response_content = response.choices[0].message.content
+            result = json.loads(response_content)
+
+            # 상세 로깅: 종합 분석 LLM 호출
+            if self.pipeline_logger:
+                self.pipeline_logger.log_llm_call(
+                    step_name="HolisticAnalysis",
+                    model=self.model,
+                    prompt=prompt,
+                    response=response_content,
+                    temperature=0.1 if not self._is_reasoning_model() else 0.0,
+                    duration_ms=llm_duration,
+                    extra={
+                        "violation_count": len(result.get("holistic_violations", [])),
+                        "min_wage_violation": result.get("minimum_wage_analysis", {}).get("is_violation", False)
+                    }
+                )
 
             # 종합 위반 사항 처리
             for v in result.get("holistic_violations", []):
                 severity = ViolationSeverity[v.get("severity", "MEDIUM")]
 
-                # 종합 분석용 더미 조항 생성
+                # related_clauses에서 위치 정보 가져오기
+                related_clause_numbers = v.get("related_clauses", [])
+                position = {}
+                original_text_for_clause = v.get("description", "")
+
+                # related_clauses의 첫 번째 조항에서 위치 정보 추출
+                if related_clause_numbers:
+                    for clause_num in related_clause_numbers:
+                        # clauses 리스트에서 해당 조항 찾기
+                        matching_clause = next(
+                            (c for c in clauses if c.clause_number == str(clause_num)),
+                            None
+                        )
+                        if matching_clause and matching_clause.position:
+                            position = matching_clause.position
+                            original_text_for_clause = matching_clause.original_text
+                            break
+
+                # 위치를 찾지 못한 경우 텍스트 매칭 시도
+                if not position and original_text_for_clause:
+                    position = self._find_text_position(
+                        contract_text,
+                        original_text_for_clause,
+                        min_ratio=0.4
+                    )
+
+                # 종합 분석용 조항 생성 (위치 정보 포함)
                 dummy_clause = ExtractedClause(
                     clause_number="종합",
                     clause_type=ClauseType.OTHER,
                     title="종합 분석",
-                    original_text=v.get("description", ""),
-                    extracted_values={}
+                    original_text=original_text_for_clause,
+                    extracted_values={},
+                    position=position
                 )
 
                 violations.append(ClauseViolation(
@@ -1343,6 +2266,7 @@ class LLMClauseAnalyzer:
                     current_value=v.get("current_value"),
                     legal_standard=v.get("legal_standard"),
                     suggestion=v.get("suggestion", ""),
+                    suggested_text=v.get("suggested_text", ""),
                     crag_sources=[d.get("source", "") for d in law_docs],
                     confidence=0.85
                 ))
@@ -1463,6 +2387,198 @@ class LLMClauseAnalyzer:
         return violations
 
 
+# 위치 매핑 모듈 - Gemini 기반 정확한 하이라이팅 위치 추출 및 수정안 생성
+class ViolationLocationMapper:
+    """
+    분석된 위반 사항들의 정확한 텍스트 위치를 Gemini를 통해 찾고,
+    suggestion을 참고하여 suggested_text를 생성하는 모듈.
+    분석 파이프라인의 마지막 단계에서 호출됨.
+    """
+
+    LOCATION_MAPPING_PROMPT = """당신은 계약서 분석 전문가입니다.
+계약서 전문과 분석된 위험 조항 목록이 주어집니다.
+각 위험 조항에 해당하는 계약서 내 정확한 텍스트 위치를 찾고, 수정안을 작성하세요.
+
+[계약서 전문]
+{contract_text}
+
+[위험 조항 목록]
+{violations_json}
+
+[작업]
+각 위험 조항(violation_id로 구분)에 대해:
+1. 해당 위반이 발생한 계약서의 정확한 텍스트 구간을 찾으세요
+2. 해당 텍스트의 시작 문자 인덱스(start_index)와 끝 문자 인덱스(end_index)를 계산하세요
+3. suggestion을 참고하여 해당 조항을 법적으로 적합하게 수정한 suggested_text를 작성하세요
+
+[인덱스 계산 방법]
+- 계약서 전문의 첫 글자가 인덱스 0입니다
+- 공백, 줄바꿈 문자도 모두 인덱스에 포함됩니다
+- contract_text[start_index:end_index]로 추출했을 때 해당 조항이 정확히 나와야 합니다
+
+[중요 규칙]
+- 인덱스는 반드시 정확해야 합니다. 한 글자라도 틀리면 하이라이팅이 어긋납니다
+- 너무 넓은 범위(문서의 15% 이상)를 잡지 마세요
+- suggested_text는 원본 조항의 형식을 유지하면서 내용만 수정하세요
+- 위치를 찾을 수 없으면 해당 violation은 결과에서 제외하세요
+
+[응답 형식 - JSON]
+{{
+    "mapped_violations": [
+        {{
+            "violation_id": "원본 violation의 id",
+            "start_index": 시작 인덱스 (정수),
+            "end_index": 끝 인덱스 (정수),
+            "matched_text": "해당 위치의 원본 텍스트 (검증용)",
+            "suggested_text": "수정된 조항 텍스트 (suggestion을 반영한 법적으로 적합한 버전)"
+        }}
+    ]
+}}"""
+
+    def __init__(self, model: str = None):
+        from app.core.config import settings
+        self.model = model or settings.LLM_LOCATION_MODEL
+        self.api_key = settings.GEMINI_API_KEY
+
+    def map_violation_locations(
+        self,
+        contract_text: str,
+        violations: List[Dict[str, Any]],
+        contract_id: str = None
+    ) -> List[Dict[str, Any]]:
+        """
+        위반 사항들의 정확한 위치를 Gemini로 매핑하고 수정안 생성
+
+        Args:
+            contract_text: 계약서 전문
+            violations: 위반 사항 목록 (dict 형태, suggestion 포함)
+            contract_id: 토큰 추적용 계약서 ID
+
+        Returns:
+            위치와 suggested_text가 추가된 위반 사항 목록
+        """
+        if not violations or not contract_text:
+            return violations
+
+        # Gemini 클라이언트 초기화
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+        except ImportError:
+            print(">>> [LocationMapper] google-generativeai not installed")
+            return violations
+
+        # 위반 사항을 간소화된 형태로 변환 (토큰 절약)
+        simplified_violations = []
+        for i, v in enumerate(violations):
+            simplified_violations.append({
+                "violation_id": v.get("id", f"v_{i}"),
+                "type": v.get("type", ""),
+                "clause_number": v.get("clause_number", ""),
+                "description": v.get("description", "")[:300],
+                "suggestion": v.get("suggestion", ""),  # 수정 제안 포함
+                "original_text_hint": v.get("original_text", "")[:200],  # 위치 힌트용
+            })
+
+        prompt = self.LOCATION_MAPPING_PROMPT.format(
+            contract_text=contract_text,
+            violations_json=json.dumps(simplified_violations, ensure_ascii=False, indent=2)
+        )
+
+        try:
+            import time
+            llm_start = time.time()
+
+            # Safety settings (완전 완화 - 계약서 분석은 합법적 용도)
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+
+            model = genai.GenerativeModel(
+                self.model,
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.1,
+                }
+            )
+
+            response = model.generate_content(prompt, safety_settings=safety_settings)
+            llm_duration = (time.time() - llm_start) * 1000
+
+            # 토큰 사용량 기록
+            if hasattr(response, 'usage_metadata') and contract_id:
+                record_llm_usage(
+                    contract_id=contract_id,
+                    module="violation_location_mapper",
+                    model=self.model,
+                    input_tokens=response.usage_metadata.prompt_token_count,
+                    output_tokens=response.usage_metadata.candidates_token_count,
+                    cached_tokens=getattr(response.usage_metadata, 'cached_content_token_count', 0) or 0,
+                    duration_ms=llm_duration
+                )
+
+            result = json.loads(response.text)
+            mapped = result.get("mapped_violations", [])
+
+            # 결과를 원본 violations에 병합
+            location_map = {}
+            for m in mapped:
+                vid = m.get("violation_id")
+                if vid:
+                    location_map[vid] = m
+
+            # 원본 violations 업데이트
+            updated_violations = []
+            for i, v in enumerate(violations):
+                vid = v.get("id", f"v_{i}")
+                if vid in location_map:
+                    loc = location_map[vid]
+                    start_idx = loc.get("start_index", -1)
+                    end_idx = loc.get("end_index", -1)
+
+                    # matched_text와 suggested_text는 인덱스 검증과 무관하게 항상 저장
+                    # (텍스트 기반 하이라이팅은 인덱스 없이도 작동함)
+                    if loc.get("matched_text"):
+                        v["matched_text"] = loc["matched_text"]
+                    if loc.get("suggested_text"):
+                        v["suggested_text"] = loc["suggested_text"]
+
+                    # 위치 검증 (인덱스 기반 하이라이팅용)
+                    if 0 <= start_idx < end_idx <= len(contract_text):
+                        coverage = (end_idx - start_idx) / len(contract_text)
+                        if coverage <= 0.15:  # 15% 이하만 허용
+                            v["start_index"] = start_idx
+                            v["end_index"] = end_idx
+
+                            # 인덱스로 추출한 텍스트 검증
+                            matched = contract_text[start_idx:end_idx]
+                            expected = loc.get("matched_text", "")
+                            if expected and matched != expected:
+                                print(f">>> [LocationMapper] Warning: Text mismatch for {vid}")
+                                print(f"    Expected: {expected[:50]}...")
+                                print(f"    Got: {matched[:50]}...")
+                                # 불일치 시에도 matched_text 유지 (텍스트 기반 매칭에 사용)
+
+                            print(f">>> [LocationMapper] Mapped {vid}: {start_idx}-{end_idx} ({coverage*100:.1f}%)")
+                        else:
+                            print(f">>> [LocationMapper] Skipped {vid} index: coverage {coverage*100:.1f}% too large (matched_text preserved)")
+                    else:
+                        print(f">>> [LocationMapper] Invalid range for {vid}: {start_idx}-{end_idx} (matched_text preserved)")
+
+                updated_violations.append(v)
+
+            return updated_violations
+
+        except Exception as e:
+            print(f">>> [LocationMapper] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return violations  # 실패 시 원본 반환
+
+
 # 편의 함수
 def analyze_contract_clauses(
     contract_text: str,
@@ -1471,3 +2587,13 @@ def analyze_contract_clauses(
     """계약서 조항 분석"""
     analyzer = LLMClauseAnalyzer(crag=crag)
     return analyzer.analyze(contract_text)
+
+
+def map_violation_locations(
+    contract_text: str,
+    violations: List[Dict[str, Any]],
+    contract_id: str = None
+) -> List[Dict[str, Any]]:
+    """위반 사항 위치 매핑 (편의 함수)"""
+    mapper = ViolationLocationMapper()
+    return mapper.map_violation_locations(contract_text, violations, contract_id)

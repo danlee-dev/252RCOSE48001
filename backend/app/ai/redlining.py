@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from difflib import SequenceMatcher, unified_diff
 
+from app.core.config import settings
 from app.core.token_usage_tracker import record_llm_usage
 
 
@@ -222,16 +223,16 @@ class GenerativeRedlining:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model: str = "gpt-4o-mini",
+        model: str = None,
         contract_id: Optional[str] = None
     ):
         """
         Args:
             llm_client: OpenAI 클라이언트
-            model: 사용할 LLM 모델
+            model: 사용할 LLM 모델 (기본값: settings.LLM_REDLINER_MODEL)
             contract_id: 계약서 ID (토큰 추적용)
         """
-        self.model = model
+        self.model = model if model else settings.LLM_REDLINER_MODEL
         self.contract_id = contract_id
 
         if llm_client is None:

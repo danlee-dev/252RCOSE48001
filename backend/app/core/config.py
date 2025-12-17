@@ -58,10 +58,38 @@ class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # LLM 모델 선택 (하이브리드 접근법)
+    # Retrieval/Embedding: 빠르고 저렴한 모델
     LLM_RETRIEVAL_MODEL: str = os.getenv("LLM_RETRIEVAL_MODEL", "gemini-2.5-flash-lite")
-    LLM_REASONING_MODEL: str = os.getenv("LLM_REASONING_MODEL", "gpt-5-mini")
+
+    # Clause Analyzer: 조항별 상세 분석
+    LLM_CLAUSE_ANALYZER_MODEL: str = os.getenv("LLM_CLAUSE_ANALYZER_MODEL", "gpt-4o")
+
+    # Reasoning: 종합 분석용
+    LLM_REASONING_MODEL: str = os.getenv("LLM_REASONING_MODEL", "gpt-4.1")
+
+    # HyDE: 가설 문서 생성
     LLM_HYDE_MODEL: str = os.getenv("LLM_HYDE_MODEL", "gpt-4o-mini")
-    LLM_SCAN_MODEL: str = os.getenv("LLM_SCAN_MODEL", "gemini-2.5-flash")
+
+    # CRAG: Corrective RAG
+    LLM_CRAG_MODEL: str = os.getenv("LLM_CRAG_MODEL", "gpt-4o-mini")
+
+    # RAPTOR: 계층적 요약
+    LLM_RAPTOR_MODEL: str = os.getenv("LLM_RAPTOR_MODEL", "gemini-2.5-flash-preview-09-2025")
+
+    # Redliner: 수정안 생성
+    LLM_REDLINER_MODEL: str = os.getenv("LLM_REDLINER_MODEL", "gpt-4o")
+
+    # Scan: 문서 스캔/OCR
+    LLM_SCAN_MODEL: str = os.getenv("LLM_SCAN_MODEL", "gemini-2.5-flash-preview-09-2025")
+
+    # Location: 위반 위치 매핑
+    LLM_LOCATION_MODEL: str = os.getenv("LLM_LOCATION_MODEL", "gemini-2.5-flash-preview-09-2025")
+
+    # Judge: 신뢰도 평가
+    LLM_JUDGE_MODEL: str = os.getenv("LLM_JUDGE_MODEL", "gpt-4o")
+
+    # Constitutional AI: 헌법적 검토
+    LLM_CONSTITUTIONAL_MODEL: str = os.getenv("LLM_CONSTITUTIONAL_MODEL", "gpt-4o")
 
     # 6. 내부 서비스 인증
     INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY", "")

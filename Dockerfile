@@ -27,7 +27,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY ai/ ./ai/
 COPY backend/ ./backend/
 COPY start.sh ./start.sh
-RUN chmod +x ./start.sh
+COPY start-worker.sh ./start-worker.sh
+RUN chmod +x ./start.sh ./start-worker.sh
 
 # Expose port
 EXPOSE 8000

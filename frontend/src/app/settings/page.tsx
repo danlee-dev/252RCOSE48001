@@ -170,7 +170,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#f2f1ee]">
         <div className="flex flex-col items-center gap-3 animate-fadeIn">
           <IconLoading size={32} className="text-gray-400" />
           <p className="text-sm text-gray-500">로딩 중...</p>
@@ -180,7 +180,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-b from-gray-50/50 to-white">
+    <div className="min-h-[100dvh] bg-[#f2f1ee]">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/80 sticky top-0 z-10">
         <div className="px-4 sm:px-5 h-14 flex items-center gap-3 sm:gap-4">
@@ -273,7 +273,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-gray-500">계정 정보를 관리합니다</p>
                 </div>
 
-                <div className="card p-4 sm:p-6 space-y-4 sm:space-y-5">
+                <div className="card-apple p-4 sm:p-6 space-y-4 sm:space-y-5">
                   {/* Avatar */}
                   <div className="flex items-center gap-3 sm:gap-4">
                     <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-semibold shadow-md flex-shrink-0">
@@ -356,7 +356,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Change Password */}
-                <div className="card p-4 sm:p-6 space-y-4 sm:space-y-5">
+                <div className="card-apple p-4 sm:p-6 space-y-4 sm:space-y-5">
                   <h3 className="text-sm font-semibold text-gray-900">비밀번호 변경</h3>
 
                   {passwordError && (
@@ -417,7 +417,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Delete Account */}
-                <div className="card p-4 sm:p-6 border-red-200 space-y-4">
+                <div className="card-apple p-4 sm:p-6 border-red-200 space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
                       <IconWarning size={20} className="text-red-600" />
@@ -482,7 +482,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-gray-500 tracking-tight">알림 수신 방법을 설정합니다</p>
                 </div>
 
-                <div className="card p-4 sm:p-6 space-y-4 sm:space-y-5">
+                <div className="card-apple p-4 sm:p-6 space-y-4 sm:space-y-5">
                   <h3 className="text-sm font-semibold text-gray-900 tracking-tight">푸시 알림</h3>
 
                   {/* Analysis Complete */}

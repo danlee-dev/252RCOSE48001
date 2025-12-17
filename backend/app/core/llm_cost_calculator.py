@@ -77,7 +77,7 @@ class LLMCostCalculator:
             "cached_cost_usd": round(cached_cost, 6),
             "output_cost_usd": round(output_cost, 6),
             "total_cost_usd": round(total_cost, 6),
-            "total_cost_krw": round(total_cost * 1300, 2)  # Approximate KRW
+            "total_cost_krw": round(total_cost * 1450, 2)  # Approximate KRW
         }
 
     def calculate_batch_cost(self, usage_logs: list[UsageLog]) -> Dict[str, any]:
@@ -116,7 +116,7 @@ class LLMCostCalculator:
         return {
             "total_requests": len(usage_logs),
             "total_cost_usd": round(total_cost, 4),
-            "total_cost_krw": round(total_cost * 1300, 0),
+            "total_cost_krw": round(total_cost * 1450, 0),
             "by_model": model_costs
         }
 
@@ -162,7 +162,7 @@ class LLMCostCalculator:
             "contracts_per_month": contracts_per_month,
             "cost_per_contract_usd": round(per_contract, 4),
             "monthly_total_usd": round(monthly_total, 2),
-            "monthly_total_krw": round(monthly_total * 1300, 0),
+            "monthly_total_krw": round(monthly_total * 1450, 0),
             "breakdown": {
                 "gemini_retrieval": {
                     "model": gemini_model,

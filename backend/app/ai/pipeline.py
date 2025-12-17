@@ -39,7 +39,7 @@ from .redlining import GenerativeRedlining, RedlineResult
 from .judge import LLMJudge, JudgmentResult
 from .reasoning_trace import ReasoningTracer, ReasoningTrace
 from .dspy_optimizer import DSPyOptimizer
-from .clause_analyzer import LLMClauseAnalyzer, ClauseAnalysisResult
+from .clause_analyzer import LLMClauseAnalyzer, ClauseAnalysisResult, ViolationLocationMapper
 
 
 @dataclass
@@ -125,9 +125,13 @@ class PipelineResult:
                         "current_value": v.current_value,
                         "legal_standard": v.legal_standard,
                         "suggestion": v.suggestion,
+                        "suggested_text": v.suggested_text,  # 수정된 조항 텍스트 (에디터용)
                         "clause_number": v.clause.clause_number,
                         "sources": v.crag_sources,
                         "original_text": v.clause.original_text,  # 원본 조항 텍스트 (하이라이팅용)
+                        "matched_text": getattr(v, 'matched_text', None),  # 텍스트 기반 하이라이팅용
+                        "start_index": v.clause.position.get("start", -1),  # 하이라이팅 시작 위치
+                        "end_index": v.clause.position.get("end", -1),  # 하이라이팅 끝 위치
                     }
                     for v in self.clause_analysis.violations
                 ],
@@ -299,7 +303,7 @@ class AdvancedAIPipeline:
         # Reasoning/Analysis 모듈
         self.constitutional_ai = ConstitutionalAI(
             llm_client=self.llm_client,
-            model=self.config.reasoning_model
+            model=settings.LLM_CONSTITUTIONAL_MODEL  # Gemini 사용 (system role 지원)
         )
         self.stress_test = LegalStressTest(
             llm_client=self.llm_client
@@ -310,7 +314,7 @@ class AdvancedAIPipeline:
         )
         self.judge = LLMJudge(
             llm_client=self.llm_client,
-            model=self.config.reasoning_model
+            model=settings.LLM_JUDGE_MODEL  # Gemini 사용 (temperature 지원)
         )
         self.tracer = ReasoningTracer(
             neo4j_driver=self.neo4j_driver
@@ -346,6 +350,14 @@ class AdvancedAIPipeline:
         logger = get_pipeline_logger(contract_id)
         logger.log_step("Pipeline", "started", input_summary=f"Text length: {len(contract_text)} chars")
 
+        # 입력 계약서 전문 로깅
+        logger.log_detail(
+            step_name="Pipeline",
+            category="InputContract",
+            data=contract_text,
+            description=f"입력 계약서 전문 ({len(contract_text)} chars)"
+        )
+
         # 토큰 사용량 추적기 초기화
         token_tracker = TokenUsageTracker(contract_id, save_to_file=True)
         TokenUsageTracker.set_active(token_tracker)
@@ -358,6 +370,9 @@ class AdvancedAIPipeline:
         self.judge.contract_id = contract_id
         self.redliner.contract_id = contract_id
         self.clause_analyzer.contract_id = contract_id
+
+        # 상세 로깅을 위해 logger 전달
+        self.clause_analyzer.pipeline_logger = logger
 
         try:
             # 1. PII Masking (개인정보 비식별화)
@@ -458,6 +473,96 @@ class AdvancedAIPipeline:
                             "annual_underpayment": result.clause_analysis.annual_underpayment
                         }
                     )
+
+                    # 상세 로깅: 추출된 조항 전체
+                    logger.log_detail(
+                        step_name="ClauseAnalysis",
+                        category="ExtractedClauses",
+                        data=[{
+                            "number": c.clause_number,
+                            "type": c.clause_type.value,
+                            "title": c.title,
+                            "text": c.original_text,
+                            "values": c.extracted_values,
+                            "position": c.position
+                        } for c in result.clause_analysis.clauses],
+                        description=f"추출된 조항 {len(result.clause_analysis.clauses)}개"
+                    )
+
+                    # 상세 로깅: 발견된 위반 전체
+                    logger.log_detail(
+                        step_name="ClauseAnalysis",
+                        category="DetectedViolations",
+                        data=[{
+                            "clause_number": v.clause.clause_number,
+                            "type": v.violation_type,
+                            "severity": v.severity.value,
+                            "description": v.description,
+                            "legal_basis": v.legal_basis,
+                            "current_value": v.current_value,
+                            "legal_standard": v.legal_standard,
+                            "suggestion": v.suggestion,
+                            "suggested_text": v.suggested_text,
+                            "confidence": v.confidence,
+                            "crag_sources": v.crag_sources
+                        } for v in result.clause_analysis.violations],
+                        description=f"발견된 위반 {result.clause_analysis.violation_count}개"
+                    )
+
+                    # 4-1. ViolationLocationMapper: 위치 매핑 및 수정안 생성 (Gemini)
+                    if result.clause_analysis.violations:
+                        step_start = time.time()
+                        logger.log_step("LocationMapping", "started", input_summary="Mapping violation locations with Gemini")
+                        try:
+                            location_mapper = ViolationLocationMapper()
+
+                            # violations를 dict 형태로 변환
+                            violations_dict = []
+                            for i, v in enumerate(result.clause_analysis.violations):
+                                violations_dict.append({
+                                    "id": f"v_{i}_{v.clause.clause_number}",
+                                    "type": v.violation_type,
+                                    "clause_number": v.clause.clause_number,
+                                    "description": v.description,
+                                    "suggestion": v.suggestion,
+                                    "original_text": v.clause.original_text,
+                                })
+
+                            # Gemini로 위치 매핑 및 suggested_text 생성
+                            mapped_violations = location_mapper.map_violation_locations(
+                                contract_text,
+                                violations_dict,
+                                contract_id
+                            )
+
+                            # 결과를 clause_analysis.violations에 반영
+                            for i, v in enumerate(result.clause_analysis.violations):
+                                vid = f"v_{i}_{v.clause.clause_number}"
+                                mapped = next((m for m in mapped_violations if m.get("id") == vid), None)
+                                if mapped:
+                                    # 위치 정보 업데이트
+                                    if mapped.get("start_index") is not None and mapped.get("end_index") is not None:
+                                        v.clause.position = {
+                                            "start": mapped["start_index"],
+                                            "end": mapped["end_index"]
+                                        }
+                                    # suggested_text 업데이트
+                                    if mapped.get("suggested_text"):
+                                        v.suggested_text = mapped["suggested_text"]
+                                    # matched_text 업데이트 (텍스트 기반 하이라이팅용)
+                                    if mapped.get("matched_text"):
+                                        v.matched_text = mapped["matched_text"]
+
+                            mapped_count = sum(1 for v in result.clause_analysis.violations
+                                             if v.clause.position.get("start", -1) >= 0)
+                            logger.log_step(
+                                "LocationMapping", "success",
+                                output_summary=f"Mapped {mapped_count}/{len(result.clause_analysis.violations)} violations",
+                                duration_ms=(time.time() - step_start) * 1000
+                            )
+                        except Exception as e:
+                            logger.log_error("LocationMapping", e, (time.time() - step_start) * 1000)
+
                 except Exception as e:
                     logger.log_error("ClauseAnalysis", e, (time.time() - step_start) * 1000)
                     # 폴백: Legacy 분석 활성화
@@ -472,10 +577,8 @@ class AdvancedAIPipeline:
                     raptor_tree = self.contract_raptor.build_contract_tree(
                         working_text, chunks
                     )
-                    if raptor_tree.root_ids:
-                        root_node = raptor_tree.nodes.get(raptor_tree.root_ids[0])
-                        if root_node:
-                            result.analysis_summary = root_node.text
+                    # RAPTOR 트리는 검색용으로 유지, analysis_summary는 _generate_summary()로 생성
+                    # (사용자 요청: 요약을 더 간결하게, 조항별 상세는 아래 별도 표시)
                     logger.log_step(
                         "RAPTOR", "success",
                         output_summary=f"Tree built with {len(raptor_tree.nodes)} nodes, {len(raptor_tree.root_ids)} roots",
