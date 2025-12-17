@@ -2397,7 +2397,7 @@ class ViolationLocationMapper:
 
     LOCATION_MAPPING_PROMPT = """당신은 계약서 분석 전문가입니다.
 계약서 전문과 분석된 위험 조항 목록이 주어집니다.
-각 위험 조항에 해당하는 계약서 내 정확한 텍스트 위치를 찾고, 수정안을 작성하세요.
+각 위험 조항에 해당하는 계약서 내 정확한 텍스트를 추출하고, 수정안을 작성하세요.
 
 [계약서 전문]
 {contract_text}
@@ -2407,18 +2407,15 @@ class ViolationLocationMapper:
 
 [작업]
 각 위험 조항(violation_id로 구분)에 대해:
-1. 해당 위반이 발생한 계약서의 정확한 텍스트 구간을 찾으세요
-2. 해당 텍스트의 시작 문자 인덱스(start_index)와 끝 문자 인덱스(end_index)를 계산하세요
-3. suggestion을 참고하여 해당 조항을 법적으로 적합하게 수정한 suggested_text를 작성하세요
-
-[인덱스 계산 방법]
-- 계약서 전문의 첫 글자가 인덱스 0입니다
-- 공백, 줄바꿈 문자도 모두 인덱스에 포함됩니다
-- contract_text[start_index:end_index]로 추출했을 때 해당 조항이 정확히 나와야 합니다
+1. 해당 위반이 발생한 계약서의 정확한 텍스트를 그대로 복사하세요 (matched_text)
+2. suggestion을 참고하여 해당 조항을 법적으로 적합하게 수정한 suggested_text를 작성하세요
 
 [중요 규칙]
-- 인덱스는 반드시 정확해야 합니다. 한 글자라도 틀리면 하이라이팅이 어긋납니다
-- 너무 넓은 범위(문서의 15% 이상)를 잡지 마세요
+- matched_text는 계약서에서 해당 위반 조항을 정확히 복사해야 합니다
+- 이탤릭(*텍스트*) 및 볼드(**텍스트**) 마커만 제거하고 내용만 추출하세요
+  - 예: "*※ 수습기간 3개월*" → "※ 수습기간 3개월"
+- 헤딩(#), 번호(1.), 블릿(-), 표(|) 등 다른 마크다운은 그대로 유지하세요
+- 텍스트가 너무 길면(500자 이상) 핵심 부분만 추출하세요
 - suggested_text는 원본 조항의 형식을 유지하면서 내용만 수정하세요
 - 위치를 찾을 수 없으면 해당 violation은 결과에서 제외하세요
 
@@ -2427,9 +2424,7 @@ class ViolationLocationMapper:
     "mapped_violations": [
         {{
             "violation_id": "원본 violation의 id",
-            "start_index": 시작 인덱스 (정수),
-            "end_index": 끝 인덱스 (정수),
-            "matched_text": "해당 위치의 원본 텍스트 (검증용)",
+            "matched_text": "계약서에서 해당 위반 조항의 원본 텍스트 (정확히 복사)",
             "suggested_text": "수정된 조항 텍스트 (suggestion을 반영한 법적으로 적합한 버전)"
         }}
     ]
@@ -2439,6 +2434,170 @@ class ViolationLocationMapper:
         from app.core.config import settings
         self.model = model or settings.LLM_LOCATION_MODEL
         self.api_key = settings.GEMINI_API_KEY
+
+    def _find_text_location(
+        self,
+        contract_text: str,
+        search_text: str,
+        fuzzy_threshold: float = 0.7
+    ) -> tuple[int, int] | None:
+        """
+        계약서에서 검색 텍스트의 정확한 위치를 찾습니다.
+
+        1. 정확한 문자열 매칭 시도
+        2. 실패 시 공백/줄바꿈 정규화 후 재시도
+        3. 실패 시 마크다운 마커 제거 후 재시도
+        4. 실패 시 fuzzy matching으로 유사 텍스트 검색
+
+        Args:
+            contract_text: 계약서 전문
+            search_text: 검색할 텍스트
+            fuzzy_threshold: 유사도 임계값 (0.0 ~ 1.0)
+
+        Returns:
+            (start_index, end_index) 또는 None
+        """
+        import re
+        from difflib import SequenceMatcher
+
+        if not search_text or not contract_text:
+            return None
+
+        # 1. 정확한 매칭 시도
+        idx = contract_text.find(search_text)
+        if idx != -1:
+            return (idx, idx + len(search_text))
+
+        # 2. 공백/줄바꿈 정규화 후 매칭
+        def normalize_whitespace(text: str) -> str:
+            return re.sub(r'\s+', ' ', text).strip()
+
+        normalized_search = normalize_whitespace(search_text)
+        normalized_contract = normalize_whitespace(contract_text)
+
+        normalized_idx = normalized_contract.find(normalized_search)
+        if normalized_idx != -1:
+            original_pos = self._map_normalized_to_original(
+                contract_text, normalized_contract, normalized_idx, len(normalized_search)
+            )
+            if original_pos:
+                return original_pos
+
+        # 3. 마크다운 마커 제거 후 매칭
+        def strip_markdown(text: str) -> str:
+            # 볼드/이탤릭 마커 제거
+            text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+            text = re.sub(r'\*([^*]+)\*', r'\1', text)
+            # 리스트 마커 제거
+            text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
+            text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+            return text.strip()
+
+        clean_search = strip_markdown(normalize_whitespace(search_text))
+        clean_contract = strip_markdown(normalize_whitespace(contract_text))
+
+        clean_idx = clean_contract.find(clean_search)
+        if clean_idx != -1:
+            # 클린 텍스트에서 찾은 위치를 원본 텍스트로 대략적 매핑
+            # 비율 기반 추정 (정확하지 않지만 대부분 작동)
+            ratio = clean_idx / max(len(clean_contract), 1)
+            estimated_start = int(ratio * len(contract_text))
+
+            # 추정 위치 주변에서 유사 텍스트 찾기
+            search_radius = min(200, len(contract_text) // 4)
+            start_range = max(0, estimated_start - search_radius)
+            end_range = min(len(contract_text), estimated_start + len(clean_search) + search_radius)
+
+            # 주변에서 최적 매칭 찾기
+            best_local_match = None
+            best_local_ratio = 0.6
+
+            for window_size in range(len(clean_search) - 20, len(clean_search) + 50, 5):
+                if window_size < 10:
+                    continue
+                for i in range(start_range, min(end_range, len(contract_text) - window_size + 1)):
+                    candidate = contract_text[i:i + window_size]
+                    candidate_clean = strip_markdown(normalize_whitespace(candidate))
+                    ratio = SequenceMatcher(None, clean_search, candidate_clean).ratio()
+
+                    if ratio > best_local_ratio:
+                        best_local_ratio = ratio
+                        best_local_match = (i, i + window_size)
+
+            if best_local_match and best_local_ratio > 0.7:
+                print(f">>> [LocationMapper] Markdown-stripped match found with {best_local_ratio*100:.1f}% similarity")
+                return best_local_match
+
+        # 4. Fuzzy matching (유사 텍스트 검색)
+        search_len = len(search_text)
+        best_match = None
+        best_ratio = fuzzy_threshold
+
+        min_window = max(20, int(search_len * 0.5))
+        max_window = min(len(contract_text), int(search_len * 1.5))
+
+        step = max(1, len(contract_text) // 2000)
+
+        for window_size in range(min_window, max_window + 1, max(1, (max_window - min_window) // 10)):
+            for i in range(0, len(contract_text) - window_size + 1, step):
+                candidate = contract_text[i:i + window_size]
+                ratio = SequenceMatcher(None, search_text, candidate).ratio()
+
+                if ratio > best_ratio:
+                    best_ratio = ratio
+                    best_match = (i, i + window_size)
+
+        if best_match:
+            print(f">>> [LocationMapper] Fuzzy match found with {best_ratio*100:.1f}% similarity")
+            return best_match
+
+        return None
+
+    def _map_normalized_to_original(
+        self,
+        original: str,
+        normalized: str,
+        normalized_start: int,
+        normalized_length: int
+    ) -> tuple[int, int] | None:
+        """
+        정규화된 텍스트의 위치를 원본 텍스트 위치로 매핑
+        """
+
+        # 원본에서 공백이 아닌 문자들의 위치 추적
+        original_positions = []
+        for i, char in enumerate(original):
+            if not char.isspace() or (original_positions and not original[original_positions[-1]].isspace()):
+                original_positions.append(i)
+
+        # 정규화된 위치에서 원본 위치 계산
+        normalized_non_space_count = 0
+        start_mapped = False
+        original_start = 0
+        original_end = len(original)
+
+        normalized_char_idx = 0
+        for i, char in enumerate(normalized):
+            if normalized_char_idx == normalized_start and not start_mapped:
+                # 원본에서 해당 위치 찾기
+                if normalized_non_space_count < len(original_positions):
+                    original_start = original_positions[normalized_non_space_count]
+                start_mapped = True
+
+            if normalized_char_idx == normalized_start + normalized_length:
+                if normalized_non_space_count < len(original_positions):
+                    original_end = original_positions[normalized_non_space_count]
+                else:
+                    original_end = len(original)
+                break
+
+            if not char.isspace():
+                normalized_non_space_count += 1
+            normalized_char_idx += 1
+
+        if start_mapped:
+            return (original_start, original_end)
+        return None
 
     def map_violation_locations(
         self,
@@ -2530,43 +2689,48 @@ class ViolationLocationMapper:
                 if vid:
                     location_map[vid] = m
 
-            # 원본 violations 업데이트
+            # matched_text에서 마크다운 마커 제거 (프론트엔드 하이라이팅 호환성)
+            def strip_markdown_markers(text: str) -> str:
+                # 볼드/이탤릭 마커 제거
+                text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+                text = re.sub(r'\*([^*]+)\*', r'\1', text)
+                # 앞뒤 공백 제거
+                return text.strip()
+
+            # 원본 violations 업데이트 (Python 기반 텍스트 매칭)
             updated_violations = []
             for i, v in enumerate(violations):
                 vid = v.get("id", f"v_{i}")
                 if vid in location_map:
                     loc = location_map[vid]
-                    start_idx = loc.get("start_index", -1)
-                    end_idx = loc.get("end_index", -1)
+                    matched_text = loc.get("matched_text", "")
+                    suggested_text = loc.get("suggested_text", "")
 
-                    # matched_text와 suggested_text는 인덱스 검증과 무관하게 항상 저장
-                    # (텍스트 기반 하이라이팅은 인덱스 없이도 작동함)
-                    if loc.get("matched_text"):
-                        v["matched_text"] = loc["matched_text"]
-                    if loc.get("suggested_text"):
-                        v["suggested_text"] = loc["suggested_text"]
+                    # matched_text와 suggested_text 저장
+                    if matched_text:
+                        # 프론트엔드에서 렌더링된 마크다운에서 검색하므로 마커 제거
+                        v["matched_text"] = strip_markdown_markers(matched_text)
+                    if suggested_text:
+                        v["suggested_text"] = suggested_text
 
-                    # 위치 검증 (인덱스 기반 하이라이팅용)
-                    if 0 <= start_idx < end_idx <= len(contract_text):
-                        coverage = (end_idx - start_idx) / len(contract_text)
-                        if coverage <= 0.15:  # 15% 이하만 허용
-                            v["start_index"] = start_idx
-                            v["end_index"] = end_idx
+                    # Python 기반 텍스트 위치 검색
+                    if matched_text:
+                        location = self._find_text_location(contract_text, matched_text)
+                        if location:
+                            start_idx, end_idx = location
+                            coverage = (end_idx - start_idx) / len(contract_text)
 
-                            # 인덱스로 추출한 텍스트 검증
-                            matched = contract_text[start_idx:end_idx]
-                            expected = loc.get("matched_text", "")
-                            if expected and matched != expected:
-                                print(f">>> [LocationMapper] Warning: Text mismatch for {vid}")
-                                print(f"    Expected: {expected[:50]}...")
-                                print(f"    Got: {matched[:50]}...")
-                                # 불일치 시에도 matched_text 유지 (텍스트 기반 매칭에 사용)
-
-                            print(f">>> [LocationMapper] Mapped {vid}: {start_idx}-{end_idx} ({coverage*100:.1f}%)")
+                            if coverage <= 0.15:  # 15% 이하만 허용
+                                v["start_index"] = start_idx
+                                v["end_index"] = end_idx
+                                print(f">>> [LocationMapper] Mapped {vid}: {start_idx}-{end_idx} ({coverage*100:.1f}%)")
+                            else:
+                                print(f">>> [LocationMapper] Skipped {vid}: coverage {coverage*100:.1f}% too large")
                         else:
-                            print(f">>> [LocationMapper] Skipped {vid} index: coverage {coverage*100:.1f}% too large (matched_text preserved)")
+                            print(f">>> [LocationMapper] Could not locate text for {vid}")
+                            print(f"    Searched for: {matched_text[:100]}..." if len(matched_text) > 100 else f"    Searched for: {matched_text}")
                     else:
-                        print(f">>> [LocationMapper] Invalid range for {vid}: {start_idx}-{end_idx} (matched_text preserved)")
+                        print(f">>> [LocationMapper] No matched_text for {vid}")
 
                 updated_violations.append(v)
 
