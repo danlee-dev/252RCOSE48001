@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -16,6 +17,17 @@ config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# DATABASE_URL 환경변수에서 동적으로 읽기 (Railway 등 PaaS 지원)
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    # postgres:// -> postgresql+asyncpg://
+    database_url = database_url.replace(
+        "postgres://", "postgresql+asyncpg://"
+    ).replace(
+        "postgresql://", "postgresql+asyncpg://"
+    )
+    config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = Base.metadata
 
