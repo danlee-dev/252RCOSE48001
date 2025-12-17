@@ -12,13 +12,12 @@
 4. [Users API](#2-users-api)
 5. [Contracts API](#3-contracts-api)
 6. [Agent Chat API](#4-agent-chat-api)
-7. [Chat API (Dify)](#5-chat-api-dify)
-8. [Analysis API](#6-analysis-api)
-9. [Search API](#7-search-api)
-10. [Scan API](#8-scan-api)
-11. [Checklist API](#9-checklist-api)
-12. [Tool API (Internal)](#10-tool-api-internal)
-13. [공통 에러 코드](#공통-에러-코드)
+7. [Analysis API](#5-analysis-api)
+8. [Search API](#6-search-api)
+9. [Scan API](#7-scan-api)
+10. [Checklist API](#8-checklist-api)
+11. [Tool API (Internal)](#9-tool-api-internal)
+12. [공통 에러 코드](#공통-에러-코드)
 
 ---
 
@@ -553,70 +552,11 @@ GET /api/v1/agent/health
 
 ---
 
-## 5. Chat API (Dify)
-
-Dify Agent와 연동된 채팅 API입니다.
-
-### 5.1 Dify 채팅
-
-```http
-POST /api/v1/chat/{contract_id}
-```
-
-Dify Agent를 통해 계약서 기반 채팅을 수행합니다.
-
-**Request Body**
-
-```json
-{
-  "message": "포괄임금제가 왜 위험한가요?",
-  "conversation_id": null
-}
-```
-
-**Response (200 OK)**
-
-```json
-{
-  "answer": "포괄임금제는 다음과 같은 이유로 위험합니다...",
-  "conversation_id": "conv_abc123",
-  "message_id": "msg_xyz789",
-  "sources": [
-    {
-      "content": "근로기준법 제56조...",
-      "source": "법령해석례"
-    }
-  ]
-}
-```
-
----
-
-### 5.2 대화 목록 조회
-
-```http
-GET /api/v1/chat/{contract_id}/conversations
-```
-
-해당 계약서와 관련된 Dify 대화 목록을 조회합니다.
-
----
-
-### 5.3 대화 내역 조회
-
-```http
-GET /api/v1/chat/{contract_id}/conversations/{conversation_id}/messages
-```
-
-특정 대화의 메시지 내역을 조회합니다.
-
----
-
-## 6. Analysis API
+## 5. Analysis API
 
 고급 AI 분석 기능을 개별적으로 호출할 수 있는 API입니다.
 
-### 6.1 Legal Stress Test
+### 5.1 Legal Stress Test
 
 ```http
 POST /api/v1/analysis/stress-test
@@ -657,7 +597,7 @@ POST /api/v1/analysis/stress-test
 
 ---
 
-### 6.2 Generative Redlining
+### 5.2 Generative Redlining
 
 ```http
 POST /api/v1/analysis/redlining
@@ -702,7 +642,7 @@ POST /api/v1/analysis/redlining
 
 ---
 
-### 6.3 LLM-as-a-Judge
+### 5.3 LLM-as-a-Judge
 
 ```http
 POST /api/v1/analysis/judge
@@ -740,7 +680,7 @@ AI 분석 결과의 신뢰도를 평가합니다.
 
 ---
 
-### 6.4 PII Masking
+### 5.4 PII Masking
 
 ```http
 POST /api/v1/analysis/pii-mask
@@ -773,7 +713,7 @@ POST /api/v1/analysis/pii-mask
 
 ---
 
-### 6.5 HyDE (검색 쿼리 강화)
+### 5.5 HyDE (검색 쿼리 강화)
 
 ```http
 POST /api/v1/analysis/hyde
@@ -802,7 +742,7 @@ POST /api/v1/analysis/hyde
 
 ---
 
-### 6.6 Constitutional AI Review
+### 5.6 Constitutional AI Review
 
 ```http
 POST /api/v1/analysis/constitutional-review
@@ -833,7 +773,7 @@ AI 응답이 노동법 원칙에 부합하는지 검토하고 수정합니다.
 
 ---
 
-### 6.7 Reasoning Trace
+### 5.7 Reasoning Trace
 
 ```http
 GET /api/v1/analysis/contract/{contract_id}/reasoning-trace
@@ -858,7 +798,7 @@ GET /api/v1/analysis/contract/{contract_id}/reasoning-trace
 
 ---
 
-### 6.8 상세 분석 결과 조회
+### 5.8 상세 분석 결과 조회
 
 ```http
 GET /api/v1/analysis/contract/{contract_id}/analysis-detail
@@ -868,7 +808,7 @@ GET /api/v1/analysis/contract/{contract_id}/analysis-detail
 
 ---
 
-### 6.9 파이프라인 정보 조회
+### 5.9 파이프라인 정보 조회
 
 ```http
 GET /api/v1/analysis/pipeline-info
@@ -878,11 +818,11 @@ Advanced AI Pipeline의 구성 요소 정보를 조회합니다. 인증 불필�
 
 ---
 
-## 7. Search API
+## 6. Search API
 
-법률 지식 검색 API입니다. Dify Agent의 Custom Tool로 사용됩니다.
+법률 지식 검색 API입니다. LangGraph Agent의 Tool로 사용됩니다.
 
-### 7.1 법률 지식 검색
+### 6.1 법률 지식 검색
 
 ```http
 POST /api/v1/search/legal
@@ -919,7 +859,7 @@ POST /api/v1/search/legal
 
 ---
 
-### 7.2 검색 서비스 상태 확인
+### 6.2 검색 서비스 상태 확인
 
 ```http
 GET /api/v1/search/health
@@ -937,11 +877,11 @@ GET /api/v1/search/health
 
 ---
 
-## 8. Scan API
+## 7. Scan API
 
 실시간 계약서 위험 탐지 API입니다. 카메라로 촬영한 이미지를 빠르게 분석합니다.
 
-### 8.1 Quick Scan
+### 7.1 Quick Scan
 
 ```http
 POST /api/v1/scan/quick
@@ -992,7 +932,7 @@ POST /api/v1/scan/quick
 
 ---
 
-### 8.2 위험 키워드 목록 조회
+### 7.2 위험 키워드 목록 조회
 
 ```http
 GET /api/v1/scan/keywords
@@ -1014,11 +954,11 @@ Quick Scan에서 사용하는 위험 키워드 목록을 조회합니다.
 
 ---
 
-## 9. Checklist API
+## 8. Checklist API
 
 2025년 고용계약 체크리스트 데이터를 제공합니다.
 
-### 9.1 체크리스트 조회
+### 8.1 체크리스트 조회
 
 ```http
 GET /api/v1/checklist/
@@ -1049,11 +989,11 @@ GET /api/v1/checklist/
 
 ---
 
-## 10. Tool API (Internal)
+## 9. Tool API (Internal)
 
-Dify 등 내부 서비스가 호출하는 Tool API입니다. `X-Internal-API-Key` 헤더 인증이 필요합니다.
+내부 서비스가 호출하는 Tool API입니다. `X-Internal-API-Key` 헤더 인증이 필요합니다.
 
-### 10.1 MUVERA 벡터 검색
+### 9.1 MUVERA 벡터 검색
 
 ```http
 GET /api/v1/contracts/v1/search-muvera
@@ -1088,7 +1028,7 @@ X-Internal-API-Key: <INTERNAL_API_KEY>
 
 ---
 
-### 10.2 GraphDB 위험 패턴 검색
+### 9.2 GraphDB 위험 패턴 검색
 
 ```http
 GET /api/v1/contracts/v1/search-risk-pattern
@@ -1132,7 +1072,7 @@ X-Internal-API-Key: <INTERNAL_API_KEY>
 | 403 | Forbidden - 권한 없음 |
 | 404 | Not Found - 리소스 없음 |
 | 500 | Internal Server Error - 서버 오류 |
-| 502 | Bad Gateway - 외부 서비스 호출 실패 (Dify 등) |
+| 502 | Bad Gateway - 외부 서비스 호출 실패 |
 | 503 | Service Unavailable - DB 연결 불가 |
 | 504 | Gateway Timeout - 외부 서비스 타임아웃 |
 
@@ -1163,7 +1103,6 @@ API 서버 실행에 필요한 환경 변수:
 | GEMINI_API_KEY | O | Google Gemini API 키 |
 | OPENAI_API_KEY | O | OpenAI API 키 |
 | INTERNAL_API_KEY | O | 내부 Tool API 인증키 |
-| DIFY_API_KEY | X | Dify API 키 |
 | TAVILY_API_KEY | X | Tavily 웹 검색 API 키 |
 
 ---

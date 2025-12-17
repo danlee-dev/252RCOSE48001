@@ -210,19 +210,24 @@ class VisionParser:
         """
         Args:
             provider: Vision API 제공자 (GEMINI 또는 OPENAI)
-            model: 사용할 모델 (None이면 기본값 사용)
+            model: 사용할 모델 (None이면 config에서 읽음)
             max_image_size: 최대 이미지 크기 (픽셀)
         """
         self.provider = provider
         self.max_image_size = max_image_size
 
-        # 모델 설정
+        # 모델 설정: 파라미터 > 환경변수 > 기본값
         if model:
             self.model = model
-        elif provider == VisionProvider.GEMINI:
-            self.model = "gemini-2.5-flash-lite"
         else:
-            self.model = "gpt-4o"
+            # config에서 LLM_SCAN_MODEL 읽기
+            scan_model = os.getenv("LLM_SCAN_MODEL", "")
+            if scan_model:
+                self.model = scan_model
+            elif provider == VisionProvider.GEMINI:
+                self.model = "gemini-2.5-flash-preview-09-2025"
+            else:
+                self.model = "gpt-4o"
 
         # Gemini safety settings (완전 완화 - 계약서 분석은 합법적 용도)
         self.safety_settings = [
