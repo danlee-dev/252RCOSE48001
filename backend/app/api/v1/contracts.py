@@ -81,7 +81,7 @@ INDEX_NAME = "docscanner_chunks"
 # 🔴 [FastAPI 라우터] 메인 BE 로직 (업로드 및 조회 유지)
 # -------------------------------------------------------------------------
 
-@router.post("/", status_code=202, summary="계약서 업로드 및 AI 분석 시작")
+@router.post("", status_code=202, summary="계약서 업로드 및 AI 분석 시작")
 async def upload_contract(
     file: UploadFile = File(..., description="업로드할 PDF 파일"),
     db: AsyncSession = Depends(get_db),
@@ -133,7 +133,7 @@ async def upload_contract(
         "status": new_contract.status
     }
 
-@router.get("/", response_model=ContractListResponse, summary="내 계약서 목록 조회 (검색 지원)")
+@router.get("", response_model=ContractListResponse, summary="내 계약서 목록 조회 (검색 지원)")
 async def read_contracts(
     skip: int = 0,
     limit: int = 10,
