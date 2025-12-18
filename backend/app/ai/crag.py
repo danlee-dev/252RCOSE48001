@@ -257,7 +257,7 @@ class GraphGuidedCRAG:
 }}"""
 
     # 쿼리 재작성 프롬프트
-    QUERY_REWRITE_PROMPT = """당신은 법률 검색 쿼리 최적화 전문가입니다.
+    QUERY_REWRITE_PROMPT = """당신은 법률 검색 쿼리 최적화 전문가입니다. JSON 형식으로 응답하세요.
 
 원본 쿼리: {query}
 
@@ -267,7 +267,7 @@ class GraphGuidedCRAG:
 2. 구체화: 모호한 표현을 구체화
 3. 분해: 복합 질문을 단순 질문들로
 
-응답 형식:
+응답 형식 (JSON):
 {{
     "rewritten_query": "최적화된 쿼리",
     "decomposed_queries": ["분해된 하위 쿼리들"],
@@ -276,7 +276,7 @@ class GraphGuidedCRAG:
 }}"""
 
     # 지식 정제 프롬프트 (확장)
-    KNOWLEDGE_REFINEMENT_PROMPT = """다음 문서에서 질문과 관련된 핵심 정보를 추출하세요.
+    KNOWLEDGE_REFINEMENT_PROMPT = """다음 문서에서 질문과 관련된 핵심 정보를 추출하세요. JSON 형식으로 응답하세요.
 
 [질문]
 {query}
@@ -290,7 +290,7 @@ class GraphGuidedCRAG:
 3. 핵심 법적 개념 정리
 4. 적용 가능한 해석 기준 제시
 
-[응답 형식]
+[응답 형식 (JSON)]
 {{
     "key_info": "핵심 정보 요약",
     "legal_articles": ["관련 법령 조항"],
@@ -663,7 +663,7 @@ class GraphGuidedCRAG:
                 response = self.llm_client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "user", "content": f"당신은 법률 검색 결과 품질 평가 전문가입니다. 루브릭에 따라 엄격하게 평가하세요.\n\n{prompt}"}
+                        {"role": "user", "content": f"당신은 법률 검색 결과 품질 평가 전문가입니다. 루브릭에 따라 엄격하게 평가하고 JSON 형식으로 응답하세요.\n\n{prompt}"}
                     ],
                     response_format={"type": "json_object"}
                 )
@@ -674,7 +674,7 @@ class GraphGuidedCRAG:
                         {
                             "role": "system",
                             "content": "당신은 법률 검색 결과 품질 평가 전문가입니다. "
-                                       "루브릭에 따라 엄격하게 평가하세요."
+                                       "루브릭에 따라 엄격하게 평가하고 JSON 형식으로 응답하세요."
                         },
                         {"role": "user", "content": prompt}
                     ],
@@ -1064,7 +1064,7 @@ class GraphGuidedCRAG:
 
         pattern_query = """
         MATCH (r:RiskPattern)-[:HAS_CASE]->(p:Precedent)
-        WHERE any(trigger IN r.triggers WHERE $query CONTAINS trigger)
+        WHERE any(trigger IN r.triggers WHERE $search_text CONTAINS trigger)
         RETURN r.name AS pattern_name,
                r.explanation AS explanation,
                r.riskLevel AS risk_level,
@@ -1075,7 +1075,7 @@ class GraphGuidedCRAG:
         """
 
         try:
-            result = session.run(pattern_query, query=query)
+            result = session.run(pattern_query, search_text=query)
             for record in result:
                 docs.append(RetrievedDocument(
                     id=f"risk_{record['pattern_name']}",

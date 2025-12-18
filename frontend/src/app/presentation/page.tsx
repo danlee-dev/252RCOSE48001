@@ -160,9 +160,41 @@ export default function PresentationPage() {
       subtitle: "System Performance Analysis and Economic Efficiency",
       background: "bg-white",
     },
-    // Slide 14: Conclusion
+    // Slide 14: Pipeline Flow Diagram (Example Scenario)
     {
       id: 14,
+      type: "diagram",
+      title: "Analysis Pipeline Flow",
+      subtitle: "Step-by-Step Contract Analysis Example",
+      background: "bg-white",
+    },
+    // Slide 15: MUVERA Technical Diagram
+    {
+      id: 15,
+      type: "diagram",
+      title: "MUVERA Embedding",
+      subtitle: "Multi-Vector Retrieval via Fixed Dimensional Encodings",
+      background: "bg-white",
+    },
+    // Slide 16: Full System Architecture
+    {
+      id: 16,
+      type: "diagram",
+      title: "System Architecture",
+      subtitle: "DocScanner.ai Full-Stack Implementation",
+      background: "bg-white",
+    },
+    // Slide 17: Hybrid RAG Architecture Diagram
+    {
+      id: 17,
+      type: "diagram",
+      title: "Hybrid RAG Architecture",
+      subtitle: "Vector DB + Knowledge Graph Synergy",
+      background: "bg-white",
+    },
+    // Slide 18: Conclusion
+    {
+      id: 18,
       type: "title",
       background: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
     },
@@ -1579,15 +1611,24 @@ export default function PresentationPage() {
 
                   <div className="flex items-stretch gap-3">
                     {/* Frontend */}
-                    <div className="flex-1 space-y-3">
-                      <div className="bg-blue-100 rounded-xl p-4 text-center">
+                    <div className="flex-1 space-y-2">
+                      <div className="bg-blue-100 rounded-xl p-3 text-center">
                         <p className="font-bold text-blue-900">{t("Frontend", "프론트엔드")}</p>
-                        <p className="text-xs text-blue-700">Next.js 15</p>
+                        <p className="text-xs text-blue-700">Next.js 15 + React 19</p>
                       </div>
-                      <div className="space-y-2 px-2">
-                        <div className="text-xs bg-white rounded p-2 border">React 19</div>
-                        <div className="text-xs bg-white rounded p-2 border">Tailwind CSS</div>
-                        <div className="text-xs bg-white rounded p-2 border">react-pdf</div>
+                      <div className="space-y-1.5 px-1">
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-blue-800">{t("PDF Viewer", "PDF 뷰어")}</p>
+                          <p className="text-slate-500">{t("Clause highlighting", "조항 하이라이팅")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-blue-800">{t("Real-time SSE", "실시간 SSE")}</p>
+                          <p className="text-slate-500">{t("Streaming response", "스트리밍 응답")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-blue-800">{t("Analysis Dashboard", "분석 대시보드")}</p>
+                          <p className="text-slate-500">{t("Risk visualization", "위험도 시각화")}</p>
+                        </div>
                       </div>
                     </div>
 
@@ -1597,15 +1638,24 @@ export default function PresentationPage() {
                     </div>
 
                     {/* Backend */}
-                    <div className="flex-1 space-y-3">
-                      <div className="bg-green-100 rounded-xl p-4 text-center">
+                    <div className="flex-1 space-y-2">
+                      <div className="bg-green-100 rounded-xl p-3 text-center">
                         <p className="font-bold text-green-900">{t("Backend", "백엔드")}</p>
-                        <p className="text-xs text-green-700">FastAPI</p>
+                        <p className="text-xs text-green-700">FastAPI + LangGraph</p>
                       </div>
-                      <div className="space-y-2 px-2">
-                        <div className="text-xs bg-white rounded p-2 border">LangGraph Agent</div>
-                        <div className="text-xs bg-white rounded p-2 border">Celery Tasks</div>
-                        <div className="text-xs bg-white rounded p-2 border">SQLAlchemy</div>
+                      <div className="space-y-1.5 px-1">
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-green-800">{t("Chat Agent", "채팅 에이전트")}</p>
+                          <p className="text-slate-500">{t("4 tools integration", "4개 도구 통합")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-green-800">{t("Async Pipeline", "비동기 파이프라인")}</p>
+                          <p className="text-slate-500">{t("Celery task queue", "Celery 작업 큐")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-green-800">{t("JWT Auth", "JWT 인증")}</p>
+                          <p className="text-slate-500">{t("Session management", "세션 관리")}</p>
+                        </div>
                       </div>
                     </div>
 
@@ -1615,15 +1665,28 @@ export default function PresentationPage() {
                     </div>
 
                     {/* AI Pipeline */}
-                    <div className="flex-1 space-y-3">
-                      <div className="bg-teal-100 rounded-xl p-4 text-center">
+                    <div className="flex-1 space-y-2">
+                      <div className="bg-teal-100 rounded-xl p-3 text-center">
                         <p className="font-bold text-teal-900">{t("AI Pipeline", "AI 파이프라인")}</p>
-                        <p className="text-xs text-teal-700">{t("12 Stages", "12단계")}</p>
+                        <p className="text-xs text-teal-700">{t("12-Stage Analysis", "12단계 분석")}</p>
                       </div>
-                      <div className="space-y-2 px-2">
-                        <div className="text-xs bg-white rounded p-2 border">GPT-4o / 5-mini</div>
-                        <div className="text-xs bg-white rounded p-2 border">KURE-v1 Embed</div>
-                        <div className="text-xs bg-white rounded p-2 border">Tavily Search</div>
+                      <div className="space-y-1.5 px-1">
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-teal-800">HyDE + CRAG</p>
+                          <p className="text-slate-500">{t("Retrieval correction", "검색 품질 보정")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-teal-800">RAPTOR</p>
+                          <p className="text-slate-500">{t("Hierarchical summary", "계층적 요약")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-teal-800">Constitutional AI</p>
+                          <p className="text-slate-500">{t("6 legal principles", "6개 법적 원칙")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-teal-800">Neuro-Symbolic</p>
+                          <p className="text-slate-500">{t("11 stress tests", "11개 스트레스 테스트")}</p>
+                        </div>
                       </div>
                     </div>
 
@@ -1636,15 +1699,24 @@ export default function PresentationPage() {
                     </div>
 
                     {/* Data Layer */}
-                    <div className="flex-1 space-y-3">
-                      <div className="bg-amber-100 rounded-xl p-4 text-center">
+                    <div className="flex-1 space-y-2">
+                      <div className="bg-amber-100 rounded-xl p-3 text-center">
                         <p className="font-bold text-amber-900">{t("Data Layer", "데이터 레이어")}</p>
                         <p className="text-xs text-amber-700">{t("Hybrid DB", "하이브리드 DB")}</p>
                       </div>
-                      <div className="space-y-2 px-2">
-                        <div className="text-xs bg-white rounded p-2 border">PostgreSQL</div>
-                        <div className="text-xs bg-white rounded p-2 border">Elasticsearch</div>
-                        <div className="text-xs bg-white rounded p-2 border">Neo4j Graph</div>
+                      <div className="space-y-1.5 px-1">
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-amber-800">Neo4j</p>
+                          <p className="text-slate-500">{t("Law-Precedent graph", "법령-판례 그래프")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-amber-800">Elasticsearch</p>
+                          <p className="text-slate-500">{t("MUVERA vector search", "MUVERA 벡터 검색")}</p>
+                        </div>
+                        <div className="text-xs bg-white rounded p-2 border">
+                          <p className="font-semibold text-amber-800">PostgreSQL</p>
+                          <p className="text-slate-500">{t("User & session data", "사용자/세션 데이터")}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1659,24 +1731,31 @@ export default function PresentationPage() {
                   </div>
                 </div>
 
-                {/* Tech Stack Summary */}
-                <div className="grid grid-cols-6 gap-4 mt-6">
-                  {[
-                    { name: "GPT-5-mini", type: "LLM" },
-                    { name: "Gemini 2.5-flash", type: t("Vision", "비전") },
-                    { name: "KURE-v1", type: t("Embed", "임베딩") },
-                    { name: "Neo4j", type: t("Graph", "그래프") },
-                    { name: "ES", type: t("Vector", "벡터") },
-                    { name: "Redis", type: t("Cache", "캐시") },
-                  ].map((tech, i) => (
-                    <div
-                      key={i}
-                      className="text-center p-3 bg-white rounded-lg border"
-                    >
-                      <p className="font-bold text-slate-900">{tech.name}</p>
-                      <p className="text-xs text-slate-500">{tech.type}</p>
+                {/* LLM Model Configuration */}
+                <div className="mt-6 bg-slate-100 p-4 border border-slate-200" style={{ borderRadius: '12px' }}>
+                  <p className="text-sm font-bold text-slate-700 mb-3">{t("Hybrid LLM Configuration", "하이브리드 LLM 구성")}</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-white p-3 border" style={{ borderRadius: '8px' }}>
+                      <p className="font-bold text-sm text-emerald-700">GPT-4o</p>
+                      <p className="text-xs text-slate-500 mt-1">{t("Clause Analysis, Redliner", "조항 분석, 수정안")}</p>
+                      <p className="text-xs text-slate-500">{t("Judge, Constitutional", "판단, 헌법적 검토")}</p>
                     </div>
-                  ))}
+                    <div className="bg-white p-3 border" style={{ borderRadius: '8px' }}>
+                      <p className="font-bold text-sm text-blue-700">GPT-4.1</p>
+                      <p className="text-xs text-slate-500 mt-1">{t("Legal Reasoning", "법적 추론")}</p>
+                      <p className="text-xs text-slate-500">{t("Complex inference", "복잡한 추론")}</p>
+                    </div>
+                    <div className="bg-white p-3 border" style={{ borderRadius: '8px' }}>
+                      <p className="font-bold text-sm text-purple-700">Gemini 2.5 Flash</p>
+                      <p className="text-xs text-slate-500 mt-1">{t("RAPTOR summary", "RAPTOR 요약")}</p>
+                      <p className="text-xs text-slate-500">{t("Quick Scan, Location", "퀵스캔, 위치 매핑")}</p>
+                    </div>
+                    <div className="bg-white p-3 border" style={{ borderRadius: '8px' }}>
+                      <p className="font-bold text-sm text-amber-700">GPT-4o-mini</p>
+                      <p className="text-xs text-slate-500 mt-1">{t("HyDE generation", "HyDE 생성")}</p>
+                      <p className="text-xs text-slate-500">{t("CRAG grading", "CRAG 등급 평가")}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2149,7 +2228,848 @@ export default function PresentationPage() {
           </div>
         );
 
-      case 13: // Conclusion
+      case 13: // Pipeline Flow Diagram
+        return (
+          <div className="h-full py-2 px-4 overflow-hidden flex items-start justify-center" style={{ backgroundColor: '#f0f5f1' }}>
+            {/* Square Container */}
+            <div className="aspect-square h-[calc(100%-16px)] max-w-full flex flex-col">
+              {/* Header */}
+              <div className="text-center mb-3">
+                <p className="font-semibold text-sm tracking-[-0.025em] uppercase mb-1" style={{ color: '#3d5a47' }}>
+                  {t("Example Scenario", "예시 시나리오")}
+                </p>
+                <h2 className="text-2xl font-bold tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                  {t("Contract Analysis Pipeline", "계약서 분석 파이프라인")}
+                </h2>
+              </div>
+
+              {/* Main Flow */}
+              <div className="flex flex-col flex-1 min-h-0">
+              {/* Input Section */}
+              <div className="rounded-xl p-4 mb-3 border" style={{ backgroundColor: '#e8f0ea', borderColor: '#c8e6cf' }}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="px-2 py-1 text-xs font-bold rounded border" style={{ backgroundColor: '#fef7e0', color: '#9a7b2d', borderColor: '#f5e6b8' }}>{t("INPUT", "입력")}</span>
+                  <span className="text-sm tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("Problematic Employment Contract", "문제있는 근로계약서")}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg p-3 border" style={{ backgroundColor: '#ffffff', borderColor: '#c8e6cf' }}>
+                    <p className="text-xs font-bold mb-1 tracking-[-0.025em]" style={{ color: '#9a7b2d' }}>{t("Article 5 (Wages)", "제5조 (임금)")}</p>
+                    <p className="text-xs tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Monthly 1.8M KRW", "월 180만원")}</p>
+                    <p className="text-[10px] tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("(48 hours/week)", "(주 48시간)")}</p>
+                  </div>
+                  <div className="rounded-lg p-3 border" style={{ backgroundColor: '#ffffff', borderColor: '#c8e6cf' }}>
+                    <p className="text-xs font-bold mb-1 tracking-[-0.025em]" style={{ color: '#9a7b2d' }}>{t("Article 8 (Resignation)", "제8조 (퇴직)")}</p>
+                    <p className="text-xs tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Return 5M KRW training fee", "교육비 500만원 반환")}</p>
+                    <p className="text-[10px] tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("(within 1 year)", "(1년 이내)")}</p>
+                  </div>
+                  <div className="rounded-lg p-3 border" style={{ backgroundColor: '#ffffff', borderColor: '#c8e6cf' }}>
+                    <p className="text-xs font-bold mb-1 tracking-[-0.025em]" style={{ color: '#9a7b2d' }}>{t("Article 12 (Hours)", "제12조 (근로시간)")}</p>
+                    <p className="text-xs tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("\"Flexible\" work", "\"탄력적\" 근무")}</p>
+                    <p className="text-[10px] tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("(vague terms)", "(모호한 표현)")}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <div className="flex justify-center mb-2">
+                <svg className="w-6 h-6" style={{ color: '#3d5a47' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+
+              {/* 6-Stage Pipeline - 3x2 Grid */}
+              <div className="grid grid-cols-3 grid-rows-2 gap-3 mb-3 flex-1">
+                {/* Stage 1: ClauseAnalyzer - Green */}
+                <div className="rounded-xl overflow-hidden flex flex-col shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#c8e6cf' }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#3d5a47' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: '#4a9a5b' }}>1</span>
+                    <span className="text-[10px] font-bold tracking-[-0.025em] text-white">ClauseAnalyzer</span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="text-[9px] space-y-1 flex-1 tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                      <p className="flex items-start gap-1"><span style={{ color: '#3d5a47' }}>-</span> {t("Extract clauses", "조항 추출")}</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#3d5a47' }}>-</span> {t("Neuro-Symbolic calc", "신경기호 계산")}</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#3d5a47' }}><span>-</span> {t("1.8M/48h=8,630 KRW", "180만/48h=8,630원")}</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#c94b45' }}><span>-</span> {t("< Min wage 9,860!", "최저임금 9,860 미달!")}</p>
+                    </div>
+                    <div className="mt-auto pt-2 border-t" style={{ borderColor: '#e8f0ea' }}>
+                      <p className="text-[9px] font-semibold tracking-[-0.025em]" style={{ color: '#3d5a47' }}>{t("3 violations detected", "3건 위반 감지")}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage 2: HyDE - Blue */}
+                <div className="rounded-xl overflow-hidden flex flex-col shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#bfdbfe' }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#3b82f6' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: '#60a5fa' }}>2</span>
+                    <span className="text-[10px] font-bold tracking-[-0.025em] text-white">HyDE</span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="text-[9px] space-y-1 flex-1 tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                      <p className="flex items-start gap-1"><span style={{ color: '#3b82f6' }}>-</span> {t("Short query fails", "짧은 쿼리 부정확")}</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#3b82f6' }}>-</span> {t("Generate virtual doc", "가상 문서 생성")}</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#1d4ed8' }}><span>-</span> {t("\"Flexible hours = Art.51\"", "\"탄력근로 = 제51조\"")}</p>
+                    </div>
+                    <div className="mt-auto pt-2 border-t" style={{ borderColor: '#dbeafe' }}>
+                      <p className="text-[9px] font-semibold tracking-[-0.025em]" style={{ color: '#1d4ed8' }}>{t("+40% retrieval acc.", "검색 정확도 +40%")}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage 3: CRAG - Amber */}
+                <div className="rounded-xl overflow-hidden flex flex-col shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#f5e6b8' }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#d4a84d' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: '#eab308' }}>3</span>
+                    <span className="text-[10px] font-bold tracking-[-0.025em] text-white">CRAG</span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="text-[9px] space-y-1 flex-1 tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                      <p className="flex items-start gap-1"><span style={{ color: '#d4a84d' }}>-</span> {t("Evaluate relevance", "관련성 평가")}</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#4a9a5b' }}><span>-</span> Art.20 RELEVANT</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#c94b45' }}><span>-</span> Art.X NOT_REL</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#d4a84d' }}>-</span> {t("Rewrite query", "쿼리 재작성")}</p>
+                    </div>
+                    <div className="mt-auto pt-2 border-t" style={{ borderColor: '#fef3c7' }}>
+                      <p className="text-[9px] font-semibold tracking-[-0.025em]" style={{ color: '#9a7b2d' }}>{t("Remove noise", "노이즈 제거")}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage 4: RAPTOR - Teal */}
+                <div className="rounded-xl overflow-hidden flex flex-col shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#99f6e4' }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#14b8a6' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: '#2dd4bf' }}>4</span>
+                    <span className="text-[10px] font-bold tracking-[-0.025em] text-white">RAPTOR</span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="text-[9px] space-y-1 flex-1 tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                      <p className="flex items-start gap-1"><span style={{ color: '#14b8a6' }}>-</span> {t("Tree structure", "트리 구조")}</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#14b8a6' }}>-</span> {t("[Root] 3 violations", "[루트] 3건 위반")}</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#14b8a6' }}>-</span> {t("[Leaf] Details", "[리프] 세부정보")}</p>
+                    </div>
+                    <div className="mt-auto pt-2 border-t" style={{ borderColor: '#ccfbf1' }}>
+                      <p className="text-[9px] font-semibold tracking-[-0.025em]" style={{ color: '#0d9488' }}>{t("Adaptive depth", "적응적 깊이")}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage 5: Constitutional AI - Purple */}
+                <div className="rounded-xl overflow-hidden flex flex-col shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#ddd6fe' }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#8b5cf6' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: '#a78bfa' }}>5</span>
+                    <span className="text-[10px] font-bold tracking-[-0.025em] text-white">Constitutional</span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="text-[9px] space-y-1 flex-1 tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                      <p className="flex items-start gap-1"><span style={{ color: '#8b5cf6' }}>-</span> {t("6 labor principles", "6대 노동법 원칙")}</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#8b5cf6' }}>-</span> {t("Critique + Revise", "비판 + 수정")}</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#7c3aed' }}><span>-</span> {t("Pro-worker bias", "근로자 보호 강화")}</p>
+                    </div>
+                    <div className="mt-auto pt-2 border-t" style={{ borderColor: '#ede9fe' }}>
+                      <p className="text-[9px] font-semibold tracking-[-0.025em]" style={{ color: '#7c3aed' }}>{t("Ethical check", "윤리 검증")}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage 6: LLM-as-a-Judge - Red */}
+                <div className="rounded-xl overflow-hidden flex flex-col shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#f5c6c4' }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#c94b45' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: '#ef4444' }}>6</span>
+                    <span className="text-[10px] font-bold tracking-[-0.025em] text-white">LLM-Judge</span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="text-[9px] space-y-1 flex-1 tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                      <p className="flex items-start gap-1"><span style={{ color: '#c94b45' }}>-</span> {t("5 metrics", "5개 평가 지표")}</p>
+                      <p className="flex items-start gap-1"><span style={{ color: '#c94b45' }}>-</span> {t("Weighted scoring", "가중치 적용")}</p>
+                      <p className="flex items-start gap-1 font-semibold" style={{ color: '#b54a45' }}><span>-</span> {t("Fact check", "팩트 체크")}</p>
+                    </div>
+                    <div className="mt-auto pt-2 border-t" style={{ borderColor: '#fecaca' }}>
+                      <p className="text-[9px] font-semibold tracking-[-0.025em]" style={{ color: '#b54a45' }}>{t("84.5pt = HIGH", "84.5점 = HIGH")}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <div className="flex justify-center mb-2">
+                <svg className="w-6 h-6" style={{ color: '#3d5a47' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+
+              {/* Output Section */}
+              <div className="rounded-xl p-4 shadow-sm border" style={{ backgroundColor: '#e8f5ec', borderColor: '#c8e6cf' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-2 py-1 text-xs font-bold rounded border tracking-[-0.025em]" style={{ backgroundColor: '#e8f5ec', color: '#3d7a4a', borderColor: '#c8e6cf' }}>{t("OUTPUT", "출력")}</span>
+                  <span className="text-sm font-medium tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Analysis Result - HIGH Risk", "분석 결과 - 고위험")}</span>
+                  <span className="ml-auto px-2 py-1 text-xs rounded border tracking-[-0.025em]" style={{ backgroundColor: '#e8f5ec', color: '#3d7a4a', borderColor: '#c8e6cf' }}>{t("Confidence: 84.5pt", "신뢰도: 84.5점")}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg p-3 border" style={{ backgroundColor: '#fdedec', borderColor: '#f5c6c4' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#c94b45' }}></span>
+                      <p className="text-xs font-bold tracking-[-0.025em]" style={{ color: '#b54a45' }}>{t("Art.5 Violation", "제5조 위반")}</p>
+                    </div>
+                    <p className="text-xs tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Below minimum wage by 1,230 KRW/hr", "시급 1,230원 미달")}</p>
+                    <p className="text-[10px] tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("Fix: Raise to 2.06M/month", "수정: 월 206만원 이상")}</p>
+                  </div>
+                  <div className="rounded-lg p-3 border" style={{ backgroundColor: '#fdedec', borderColor: '#f5c6c4' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#c94b45' }}></span>
+                      <p className="text-xs font-bold tracking-[-0.025em]" style={{ color: '#b54a45' }}>{t("Art.8 Violation", "제8조 위반")}</p>
+                    </div>
+                    <p className="text-xs tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Penalty clause void (Art.20)", "위약금 예정 무효 (제20조)")}</p>
+                    <p className="text-[10px] tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("Fix: Remove entire clause", "수정: 조항 전체 삭제")}</p>
+                  </div>
+                  <div className="rounded-lg p-3 border" style={{ backgroundColor: '#fef7e0', borderColor: '#f5e6b8' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#d4a84d' }}></span>
+                      <p className="text-xs font-bold tracking-[-0.025em]" style={{ color: '#9a7b2d' }}>{t("Art.12 Unclear", "제12조 불명확")}</p>
+                    </div>
+                    <p className="text-xs tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("No written agreement for flex", "탄력근로 서면합의 없음")}</p>
+                    <p className="text-[10px] tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("Fix: Specify hours + agreement", "수정: 시간 명시 + 합의서")}</p>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 14: // MUVERA Technical Diagram
+        return (
+          <div className="h-full flex items-center justify-center p-6" style={{ backgroundColor: '#f0f5f1' }}>
+            {/* 2.8:1 Aspect Ratio Container */}
+            <div className="w-full max-w-[1200px]" style={{ aspectRatio: '2.8 / 1' }}>
+              <div className="w-full h-full bg-white shadow-lg border p-6 flex flex-col" style={{ borderColor: '#e8f0ea', borderRadius: '16px' }}>
+                {/* Header */}
+                <div className="text-center mb-3">
+                  <h2 className="text-xl font-bold tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                    {t("MUVERA: Multi-Vector Retrieval via Fixed Dimensional Encodings", "MUVERA: 고정 차원 인코딩을 통한 다중 벡터 검색")}
+                  </h2>
+                  <p className="text-xs mt-1 tracking-[-0.025em]" style={{ color: '#6b7280' }}>
+                    {t("Combining Single-Vector Efficiency with Multi-Vector Accuracy", "단일 벡터의 효율성과 다중 벡터의 정확성을 결합")}
+                  </p>
+                </div>
+
+                {/* Main Visual Flow */}
+                <div className="flex-1 flex items-center gap-4 min-h-0">
+                  {/* Step 1: Multi-Vector Input */}
+                  <div className="flex flex-col items-center" style={{ width: '180px' }}>
+                    <div className="px-3 py-1 text-center mb-2" style={{ backgroundColor: '#3b82f6', borderRadius: '6px' }}>
+                      <span className="text-[10px] font-bold text-white tracking-[-0.025em]">{t("INPUT: Multi-Vector", "입력: 다중 벡터")}</span>
+                    </div>
+                    <div className="w-full p-2 border" style={{ backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderRadius: '8px' }}>
+                      <div className="flex flex-col gap-1">
+                        <div className="h-5 flex items-center justify-center text-[8px] font-mono text-white" style={{ backgroundColor: '#3b82f6', borderRadius: '4px' }}>v1 [1024]</div>
+                        <div className="h-5 flex items-center justify-center text-[8px] font-mono text-white" style={{ backgroundColor: '#60a5fa', borderRadius: '4px' }}>v2 [1024]</div>
+                        <div className="h-5 flex items-center justify-center text-[8px] font-mono text-white" style={{ backgroundColor: '#93c5fd', borderRadius: '4px' }}>v3 [1024]</div>
+                        <div className="h-5 flex items-center justify-center text-[8px] font-mono" style={{ backgroundColor: '#bfdbfe', borderRadius: '4px', color: '#1e40af' }}>... vN</div>
+                      </div>
+                      <p className="text-[8px] text-center mt-2 tracking-[-0.025em]" style={{ color: '#6b7280' }}>{t("Variable count", "가변 개수")}</p>
+                    </div>
+                  </div>
+
+                  {/* Arrow 1 */}
+                  <div className="flex items-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 2: SimHash Partitioning - Visual */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="px-3 py-1 text-center mb-2 self-center" style={{ backgroundColor: '#8b5cf6', borderRadius: '6px' }}>
+                      <span className="text-[10px] font-bold text-white tracking-[-0.025em]">SimHash (LSH) + FDE</span>
+                    </div>
+
+                    {/* Gradient Partition Visualization */}
+                    <div className="p-3 border" style={{ backgroundColor: '#faf5ff', borderColor: '#ddd6fe', borderRadius: '8px' }}>
+                      {/* Gradient bar showing partitions */}
+                      <div className="flex h-6 mb-1 overflow-hidden" style={{ borderRadius: '6px' }}>
+                        <div className="flex-1 flex items-center justify-center text-[8px] font-mono text-white font-bold" style={{ background: 'linear-gradient(90deg, #c4b5fd 0%, #a78bfa 100%)' }}>B0</div>
+                        <div className="flex-1 flex items-center justify-center text-[8px] font-mono text-white font-bold" style={{ background: 'linear-gradient(90deg, #a78bfa 0%, #8b5cf6 100%)' }}>B1</div>
+                        <div className="flex-1 flex items-center justify-center text-[8px] font-mono text-white font-bold" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)' }}>B2</div>
+                        <div className="flex-1 flex items-center justify-center text-[8px] font-mono text-white font-bold" style={{ background: 'linear-gradient(90deg, #7c3aed 0%, #6d28d9 100%)' }}>B3</div>
+                        <div className="flex-1 flex items-center justify-center text-[8px] font-mono text-white font-bold" style={{ background: 'linear-gradient(90deg, #6d28d9 0%, #5b21b6 100%)' }}>...</div>
+                        <div className="flex-1 flex items-center justify-center text-[8px] font-mono text-white font-bold" style={{ background: 'linear-gradient(90deg, #5b21b6 0%, #4c1d95 100%)' }}>Bk</div>
+                      </div>
+
+                      {/* Dimension labels */}
+                      <div className="flex justify-between text-[6px] font-mono mb-2" style={{ color: '#6b7280' }}>
+                        <span>dim 0</span>
+                        <span>256</span>
+                        <span>512</span>
+                        <span>768</span>
+                        <span>1024</span>
+                      </div>
+
+                      {/* Process explanation with formulas */}
+                      <div className="flex gap-2">
+                        <div className="flex-1 p-2 border" style={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', borderRadius: '6px' }}>
+                          <p className="text-[8px] font-bold mb-1" style={{ color: '#7c3aed' }}>1. SimHash (LSH)</p>
+                          <div className="text-[8px] font-mono p-1 mb-1" style={{ backgroundColor: '#ede9fe', borderRadius: '4px', color: '#5b21b6' }}>
+                            h(v) = sign(v · r)
+                          </div>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("r: random hyperplane", "r: 랜덤 초평면")}</p>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("→ binary hash code", "→ 이진 해시 코드")}</p>
+                        </div>
+                        <div className="flex-1 p-2 border" style={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', borderRadius: '6px' }}>
+                          <p className="text-[8px] font-bold mb-1" style={{ color: '#7c3aed' }}>2. {t("Bucket Assign", "버킷 할당")}</p>
+                          <div className="text-[8px] font-mono p-1 mb-1" style={{ backgroundColor: '#ede9fe', borderRadius: '4px', color: '#5b21b6' }}>
+                            Bj = {'{'}vi | h(vi)=j{'}'}
+                          </div>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("Same hash → Same bucket", "동일 해시 → 동일 버킷")}</p>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("(Preserves similarity)", "(유사도 보존)")}</p>
+                        </div>
+                        <div className="flex-1 p-2 border" style={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', borderRadius: '6px' }}>
+                          <p className="text-[8px] font-bold mb-1" style={{ color: '#7c3aed' }}>3. FDE {t("Encode", "인코딩")}</p>
+                          <div className="text-[8px] font-mono p-1 mb-1" style={{ backgroundColor: '#ede9fe', borderRadius: '4px', color: '#5b21b6' }}>
+                            [agg(B0)|...|agg(Bk)]
+                          </div>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("agg: mean/max pooling", "agg: 평균/최대 풀링")}</p>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("→ Fixed D dimensions", "→ 고정 D 차원")}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Arrow 2 */}
+                  <div className="flex items-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3d5a47" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 3: Fixed Output */}
+                  <div className="flex flex-col items-center" style={{ width: '180px' }}>
+                    <div className="px-3 py-1 text-center mb-2" style={{ backgroundColor: '#3d5a47', borderRadius: '6px' }}>
+                      <span className="text-[10px] font-bold text-white tracking-[-0.025em]">{t("OUTPUT: Fixed-Dim", "출력: 고정 차원")}</span>
+                    </div>
+                    <div className="w-full p-2 border" style={{ backgroundColor: '#e8f5ec', borderColor: '#c8e6cf', borderRadius: '8px' }}>
+                      {/* Fixed dimension gradient bar */}
+                      <div className="h-16 flex overflow-hidden mb-2" style={{ borderRadius: '6px', background: 'linear-gradient(180deg, #4a9a5b 0%, #3d5a47 100%)' }}>
+                        <div className="w-full flex items-center justify-center">
+                          <span className="text-sm font-mono text-white font-bold">[D]</span>
+                        </div>
+                      </div>
+                      <p className="text-[8px] text-center tracking-[-0.025em]" style={{ color: '#3d5a47' }}>{t("Single fixed vector", "단일 고정 벡터")}</p>
+
+                      {/* Benefits */}
+                      <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: '#c8e6cf' }}>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[7px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("O(1) per doc", "문서당 O(1)")}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[7px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Multi-vec preserved", "다중벡터 보존")}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[7px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Fast MIPS", "빠른 MIPS")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 15: // Full System Architecture
+        return (
+          <div className="h-full flex items-center justify-center p-4" style={{ backgroundColor: '#f0f5f1' }}>
+            {/* 2.2:1 Aspect Ratio Container */}
+            <div className="w-full max-w-[1300px]" style={{ aspectRatio: '2.2 / 1' }}>
+              <div className="w-full h-full bg-white shadow-lg border p-5 flex flex-col" style={{ borderColor: '#e8f0ea', borderRadius: '16px' }}>
+                {/* Header */}
+                <div className="text-center mb-3">
+                  <h2 className="text-xl font-bold tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                    {t("DocScanner.ai System Architecture", "DocScanner.ai 시스템 아키텍처")}
+                  </h2>
+                </div>
+
+                {/* Main Architecture Diagram */}
+                <div className="flex-1 flex gap-3 min-h-0">
+
+                  {/* Column 1: Frontend */}
+                  <div className="flex flex-col" style={{ width: '150px' }}>
+                    <div className="h-9 flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', borderRadius: '8px 8px 0 0' }}>
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <path d="M3 9h18M9 21V9" />
+                      </svg>
+                      <span className="text-[11px] font-bold text-white tracking-[-0.025em]">Frontend</span>
+                    </div>
+                    <div className="flex-1 border border-t-0 p-2.5 flex flex-col gap-2" style={{ borderColor: '#bfdbfe', borderRadius: '0 0 8px 8px', backgroundColor: '#eff6ff' }}>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 flex items-center justify-center" style={{ backgroundColor: '#3b82f6', borderRadius: '4px' }}>
+                          <span className="text-[8px] font-bold text-white">N</span>
+                        </div>
+                        <span className="text-[10px] font-bold" style={{ color: '#1d4ed8' }}>Next.js 14</span>
+                      </div>
+
+                      <div className="p-2 border flex-1" style={{ backgroundColor: '#ffffff', borderColor: '#bfdbfe', borderRadius: '6px' }}>
+                        <p className="text-[9px] font-bold mb-1.5" style={{ color: '#3b82f6' }}>Pages</p>
+                        <div className="space-y-1 text-[8px]" style={{ color: '#1a1a1a' }}>
+                          <p className="flex items-center gap-1"><span style={{ color: '#3b82f6' }}>-</span> Dashboard</p>
+                          <p className="flex items-center gap-1"><span style={{ color: '#3b82f6' }}>-</span> /analysis/[id]</p>
+                          <p className="flex items-center gap-1"><span style={{ color: '#3b82f6' }}>-</span> /scan</p>
+                          <p className="flex items-center gap-1"><span style={{ color: '#3b82f6' }}>-</span> /certification</p>
+                        </div>
+                      </div>
+
+                      <div className="p-2 border" style={{ backgroundColor: '#ffffff', borderColor: '#bfdbfe', borderRadius: '6px' }}>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="px-1.5 py-0.5 text-[7px] font-medium" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', borderRadius: '4px' }}>SSE</span>
+                          <span className="px-1.5 py-0.5 text-[7px] font-medium" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', borderRadius: '4px' }}>JWT</span>
+                          <span className="px-1.5 py-0.5 text-[7px] font-medium" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', borderRadius: '4px' }}>Chat</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex items-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="px-2 py-1" style={{ backgroundColor: '#dbeafe', borderRadius: '4px' }}>
+                        <span className="text-[8px] font-bold" style={{ color: '#1d4ed8' }}>REST</span>
+                      </div>
+                      <svg width="28" height="20" viewBox="0 0 28 20" fill="none">
+                        <path d="M2 10h24M20 4l6 6-6 6" stroke="url(#arrow1)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <defs><linearGradient id="arrow1" x1="2" y1="10" x2="26" y2="10"><stop stopColor="#3b82f6"/><stop offset="1" stopColor="#3d5a47"/></linearGradient></defs>
+                      </svg>
+                      <div className="px-2 py-1" style={{ backgroundColor: '#ede9fe', borderRadius: '4px' }}>
+                        <span className="text-[8px] font-bold" style={{ color: '#7c3aed' }}>SSE</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Column 2: Backend API */}
+                  <div className="flex flex-col" style={{ width: '160px' }}>
+                    <div className="h-9 flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #4a9a5b 0%, #3d5a47 100%)', borderRadius: '8px 8px 0 0' }}>
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                      <span className="text-[11px] font-bold text-white tracking-[-0.025em]">Backend API</span>
+                    </div>
+                    <div className="flex-1 border border-t-0 p-2.5 flex flex-col gap-2" style={{ borderColor: '#c8e6cf', borderRadius: '0 0 8px 8px', backgroundColor: '#e8f5ec' }}>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 flex items-center justify-center" style={{ backgroundColor: '#3d5a47', borderRadius: '4px' }}>
+                          <span className="text-[8px] font-bold text-white">F</span>
+                        </div>
+                        <span className="text-[10px] font-bold" style={{ color: '#3d5a47' }}>FastAPI + Celery</span>
+                      </div>
+
+                      <div className="p-2 border flex-1" style={{ backgroundColor: '#ffffff', borderColor: '#c8e6cf', borderRadius: '6px' }}>
+                        <p className="text-[9px] font-bold mb-1.5" style={{ color: '#3d5a47' }}>Endpoints</p>
+                        <div className="space-y-1 text-[8px] font-mono" style={{ color: '#1a1a1a' }}>
+                          <p>/contracts</p>
+                          <p>/analysis/*</p>
+                          <p>/agent/stream</p>
+                          <p>/scan/quick</p>
+                        </div>
+                      </div>
+
+                      <div className="p-2 border" style={{ backgroundColor: '#ffffff', borderColor: '#c8e6cf', borderRadius: '6px' }}>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="px-1.5 py-0.5 text-[7px] font-medium" style={{ backgroundColor: '#d1fae5', color: '#065f46', borderRadius: '4px' }}>Celery</span>
+                          <span className="px-1.5 py-0.5 text-[7px] font-medium" style={{ backgroundColor: '#d1fae5', color: '#065f46', borderRadius: '4px' }}>Async</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex items-center">
+                    <svg width="24" height="20" viewBox="0 0 24 20" fill="none">
+                      <path d="M2 10h20M16 4l6 6-6 6" stroke="url(#arrow2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <defs><linearGradient id="arrow2" x1="2" y1="10" x2="22" y2="10"><stop stopColor="#3d5a47"/><stop offset="1" stopColor="#8b5cf6"/></linearGradient></defs>
+                    </svg>
+                  </div>
+
+                  {/* Column 3: AI Pipelines */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="h-9 flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 50%, #5b21b6 100%)', borderRadius: '8px 8px 0 0' }}>
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      <span className="text-[11px] font-bold text-white tracking-[-0.025em]">AI Pipelines</span>
+                    </div>
+                    <div className="flex-1 border border-t-0 p-2" style={{ borderColor: '#ddd6fe', borderRadius: '0 0 8px 8px', backgroundColor: '#faf5ff' }}>
+                      <div className="grid grid-cols-2 gap-2 h-full">
+
+                        {/* Contract Analysis */}
+                        <div className="p-2 flex flex-col" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf5ff 100%)', border: '1px solid #e9d5ff', borderRadius: '6px' }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', borderRadius: '4px' }}>
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <p className="text-[10px] font-bold" style={{ color: '#7c3aed' }}>{t("Contract Analysis", "계약서 분석")}</p>
+                          </div>
+                          <div className="text-[8px] space-y-0.5 flex-1" style={{ color: '#1a1a1a' }}>
+                            <p>- HyDE + CRAG</p>
+                            <p>- Clause Analysis</p>
+                            <p>- Constitutional AI</p>
+                            <p>- LLM-as-a-Judge</p>
+                          </div>
+                          <div className="mt-1.5 px-2 py-1 text-center" style={{ background: 'linear-gradient(90deg, #c4b5fd 0%, #a78bfa 100%)', borderRadius: '4px' }}>
+                            <span className="text-[8px] font-bold text-white">12 stages</span>
+                          </div>
+                        </div>
+
+                        {/* Chat Agent */}
+                        <div className="p-2 flex flex-col" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf5ff 100%)', border: '1px solid #e9d5ff', borderRadius: '6px' }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', borderRadius: '4px' }}>
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                            </div>
+                            <p className="text-[10px] font-bold" style={{ color: '#7c3aed' }}>{t("Chat Agent", "채팅 에이전트")}</p>
+                          </div>
+                          <div className="text-[8px] space-y-0.5 flex-1" style={{ color: '#1a1a1a' }}>
+                            <p>- LangGraph</p>
+                            <p>- Tool Execution</p>
+                            <p>- Vector Search</p>
+                            <p>- SSE Stream</p>
+                          </div>
+                          <div className="mt-1.5 px-2 py-1 text-center" style={{ background: 'linear-gradient(90deg, #a78bfa 0%, #8b5cf6 100%)', borderRadius: '4px' }}>
+                            <span className="text-[8px] font-bold text-white">4 tools</span>
+                          </div>
+                        </div>
+
+                        {/* Quick Scan */}
+                        <div className="p-2 flex flex-col" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf5ff 100%)', border: '1px solid #e9d5ff', borderRadius: '6px' }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', borderRadius: '4px' }}>
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <circle cx="12" cy="13" r="3" />
+                              </svg>
+                            </div>
+                            <p className="text-[10px] font-bold" style={{ color: '#7c3aed' }}>{t("Quick Scan", "빠른 스캔")}</p>
+                          </div>
+                          <div className="text-[8px] space-y-0.5 flex-1" style={{ color: '#1a1a1a' }}>
+                            <p>- Vision OCR</p>
+                            <p>- Risk Detection</p>
+                          </div>
+                          <div className="mt-1.5 px-2 py-1 text-center" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '4px' }}>
+                            <span className="text-[8px] font-bold text-white">&lt;3s</span>
+                          </div>
+                        </div>
+
+                        {/* Evidence Guide */}
+                        <div className="p-2 flex flex-col" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf5ff 100%)', border: '1px solid #e9d5ff', borderRadius: '6px' }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', borderRadius: '4px' }}>
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                              </svg>
+                            </div>
+                            <p className="text-[10px] font-bold" style={{ color: '#7c3aed' }}>{t("Evidence Guide", "내용증명")}</p>
+                          </div>
+                          <div className="text-[8px] space-y-0.5 flex-1" style={{ color: '#1a1a1a' }}>
+                            <p>- Report Gen</p>
+                            <p>- Templates</p>
+                          </div>
+                          <div className="mt-1.5 px-2 py-1 text-center" style={{ background: 'linear-gradient(90deg, #7c3aed 0%, #6d28d9 100%)', borderRadius: '4px' }}>
+                            <span className="text-[8px] font-bold text-white">{t("Guide", "가이드")}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex items-center">
+                    <svg width="24" height="20" viewBox="0 0 24 20" fill="none">
+                      <path d="M2 10h20M16 4l6 6-6 6" stroke="url(#arrow3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <defs><linearGradient id="arrow3" x1="2" y1="10" x2="22" y2="10"><stop stopColor="#8b5cf6"/><stop offset="1" stopColor="#d4a84d"/></linearGradient></defs>
+                    </svg>
+                  </div>
+
+                  {/* Column 4: External Services */}
+                  <div className="flex flex-col gap-2" style={{ width: '140px' }}>
+                    {/* LLM Services */}
+                    <div className="flex-1 flex flex-col">
+                      <div className="h-8 flex items-center justify-center gap-1.5" style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #d4a84d 100%)', borderRadius: '8px 8px 0 0' }}>
+                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="text-[10px] font-bold text-white tracking-[-0.025em]">LLM</span>
+                      </div>
+                      <div className="flex-1 border border-t-0 p-2 flex flex-col gap-1.5" style={{ borderColor: '#f5e6b8', borderRadius: '0 0 8px 8px', backgroundColor: '#fef7e0' }}>
+                        <div className="p-1.5 flex items-center gap-2" style={{ background: 'linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)', borderRadius: '4px' }}>
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#d4a84d', borderRadius: '4px' }}>
+                            <span className="text-[7px] font-bold text-white">O</span>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold" style={{ color: '#92400e' }}>OpenAI GPT-4o</p>
+                          </div>
+                        </div>
+                        <div className="p-1.5 flex items-center gap-2" style={{ background: 'linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)', borderRadius: '4px' }}>
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#d4a84d', borderRadius: '4px' }}>
+                            <span className="text-[7px] font-bold text-white">G</span>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold" style={{ color: '#92400e' }}>Gemini 2.5</p>
+                          </div>
+                        </div>
+                        <div className="p-1.5 flex items-center gap-2" style={{ background: 'linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)', borderRadius: '4px' }}>
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#d4a84d', borderRadius: '4px' }}>
+                            <span className="text-[7px] font-bold text-white">K</span>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold" style={{ color: '#92400e' }}>KURE-v1</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Databases */}
+                    <div className="flex-1 flex flex-col">
+                      <div className="h-8 flex items-center justify-center gap-1.5" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', borderRadius: '8px 8px 0 0' }}>
+                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <ellipse cx="12" cy="5" rx="9" ry="3" />
+                          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                        </svg>
+                        <span className="text-[10px] font-bold text-white tracking-[-0.025em]">DB</span>
+                      </div>
+                      <div className="flex-1 border border-t-0 p-2 flex flex-col gap-1.5" style={{ borderColor: '#f5c6c4', borderRadius: '0 0 8px 8px', backgroundColor: '#fef2f2' }}>
+                        <div className="p-1.5 flex items-center gap-2" style={{ background: 'linear-gradient(90deg, #fee2e2 0%, #fecaca 100%)', borderRadius: '4px' }}>
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#dc2626', borderRadius: '4px' }}>
+                            <span className="text-[7px] font-bold text-white">P</span>
+                          </div>
+                          <p className="text-[9px] font-bold" style={{ color: '#991b1b' }}>PostgreSQL</p>
+                        </div>
+                        <div className="p-1.5 flex items-center gap-2" style={{ background: 'linear-gradient(90deg, #fee2e2 0%, #fecaca 100%)', borderRadius: '4px' }}>
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#dc2626', borderRadius: '4px' }}>
+                            <span className="text-[7px] font-bold text-white">E</span>
+                          </div>
+                          <p className="text-[9px] font-bold" style={{ color: '#991b1b' }}>Elasticsearch</p>
+                        </div>
+                        <div className="p-1.5 flex items-center gap-2" style={{ background: 'linear-gradient(90deg, #fee2e2 0%, #fecaca 100%)', borderRadius: '4px' }}>
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#dc2626', borderRadius: '4px' }}>
+                            <span className="text-[7px] font-bold text-white">N</span>
+                          </div>
+                          <p className="text-[9px] font-bold" style={{ color: '#991b1b' }}>Neo4j</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 16: // Hybrid RAG Architecture Diagram
+        return (
+          <div className="h-full flex items-center justify-center p-6" style={{ backgroundColor: '#f0f5f1' }}>
+            {/* 2.5:1 Aspect Ratio Container */}
+            <div className="w-full max-w-[1200px]" style={{ aspectRatio: '2.5 / 1' }}>
+              <div className="w-full h-full bg-white shadow-lg border p-5 flex flex-col" style={{ borderColor: '#e8f0ea', borderRadius: '16px' }}>
+                {/* Header */}
+                <div className="text-center mb-3">
+                  <h2 className="text-xl font-bold tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>
+                    {t("Hybrid RAG: Vector DB + Knowledge Graph", "Hybrid RAG: Vector DB + Knowledge Graph")}
+                  </h2>
+                  <p className="text-xs mt-1 tracking-[-0.025em]" style={{ color: '#6b7280' }}>
+                    {t("Combining Semantic Similarity with Structured Knowledge for Legal Retrieval", "법률 검색을 위한 의미적 유사성과 구조화된 지식의 결합")}
+                  </p>
+                </div>
+
+                {/* Main Visual Flow */}
+                <div className="flex-1 flex items-center gap-3 min-h-0">
+
+                  {/* Left: Query Input */}
+                  <div className="flex flex-col items-center" style={{ width: '120px' }}>
+                    <div className="px-3 py-1.5 text-center mb-2 w-full" style={{ backgroundColor: '#1a1a1a', borderRadius: '6px' }}>
+                      <span className="text-[10px] font-bold text-white tracking-[-0.025em]">{t("Query", "질의")}</span>
+                    </div>
+                    <div className="w-full p-2 border" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb', borderRadius: '8px' }}>
+                      <div className="text-[9px] font-mono p-2 mb-2" style={{ backgroundColor: '#ffffff', borderRadius: '4px', color: '#374151', border: '1px solid #e5e7eb' }}>
+                        &quot;{t("overtime pay clause", "초과근무 수당 조항")}&quot;
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2" style={{ backgroundColor: '#6b7280', borderRadius: '2px' }}></div>
+                          <span className="text-[7px]" style={{ color: '#6b7280' }}>{t("User contract", "사용자 계약서")}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2" style={{ backgroundColor: '#6b7280', borderRadius: '2px' }}></div>
+                          <span className="text-[7px]" style={{ color: '#6b7280' }}>{t("Clause text", "조항 텍스트")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex items-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+
+                  {/* Center: Two Parallel Paths */}
+                  <div className="flex-1 flex flex-col gap-2">
+
+                    {/* Top Path: Vector DB */}
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 p-2.5 border" style={{ backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderRadius: '8px' }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="px-2 py-1" style={{ backgroundColor: '#3b82f6', borderRadius: '4px' }}>
+                            <span className="text-[9px] font-bold text-white">Vector DB</span>
+                          </div>
+                          <span className="text-[8px] font-medium" style={{ color: '#1d4ed8' }}>Elasticsearch + MUVERA</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 p-1.5 border" style={{ backgroundColor: '#ffffff', borderColor: '#bfdbfe', borderRadius: '4px' }}>
+                            <p className="text-[8px] font-bold mb-1" style={{ color: '#3b82f6' }}>{t("Semantic Search", "의미 검색")}</p>
+                            <p className="text-[7px]" style={{ color: '#6b7280' }}>{t("Dense vector similarity", "밀집 벡터 유사도")}</p>
+                          </div>
+                          <div className="flex-1 p-1.5 border" style={{ backgroundColor: '#ffffff', borderColor: '#bfdbfe', borderRadius: '4px' }}>
+                            <p className="text-[8px] font-bold mb-1" style={{ color: '#3b82f6' }}>HyDE</p>
+                            <p className="text-[7px]" style={{ color: '#6b7280' }}>{t("Hypothetical docs", "가상 문서 생성")}</p>
+                          </div>
+                          <div className="flex-1 p-1.5 border" style={{ backgroundColor: '#ffffff', borderColor: '#bfdbfe', borderRadius: '4px' }}>
+                            <p className="text-[8px] font-bold mb-1" style={{ color: '#3b82f6' }}>RAPTOR</p>
+                            <p className="text-[7px]" style={{ color: '#6b7280' }}>{t("Hierarchical retrieval", "계층적 검색")}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Arrow to merge */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+
+                    {/* Bottom Path: Graph DB */}
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 p-2.5 border" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: '8px' }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="px-2 py-1" style={{ backgroundColor: '#3d5a47', borderRadius: '4px' }}>
+                            <span className="text-[9px] font-bold text-white">Graph DB</span>
+                          </div>
+                          <span className="text-[8px] font-medium" style={{ color: '#166534' }}>Neo4j Knowledge Graph</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 p-1.5 border" style={{ backgroundColor: '#ffffff', borderColor: '#bbf7d0', borderRadius: '4px' }}>
+                            <p className="text-[8px] font-bold mb-1" style={{ color: '#3d5a47' }}>{t("Category Match", "카테고리 매칭")}</p>
+                            <p className="text-[7px]" style={{ color: '#6b7280' }}>{t("Structured traversal", "구조화된 탐색")}</p>
+                          </div>
+                          <div className="flex-1 p-1.5 border" style={{ backgroundColor: '#ffffff', borderColor: '#bbf7d0', borderRadius: '4px' }}>
+                            <p className="text-[8px] font-bold mb-1" style={{ color: '#3d5a47' }}>RiskPattern</p>
+                            <p className="text-[7px]" style={{ color: '#6b7280' }}>{t("Trigger matching", "트리거 매칭")}</p>
+                          </div>
+                          <div className="flex-1 p-1.5 border" style={{ backgroundColor: '#ffffff', borderColor: '#bbf7d0', borderRadius: '4px' }}>
+                            <p className="text-[8px] font-bold mb-1" style={{ color: '#3d5a47' }}>{t("Multi-hop", "다중 홉")}</p>
+                            <p className="text-[7px]" style={{ color: '#6b7280' }}>{t("Relation traversal", "관계 탐색")}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Arrow to merge */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3d5a47" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Merge Point */}
+                  <div className="flex flex-col items-center" style={{ width: '100px' }}>
+                    <div className="w-full p-2 border" style={{ backgroundColor: '#faf5ff', borderColor: '#ddd6fe', borderRadius: '8px' }}>
+                      <div className="px-2 py-1 text-center mb-2" style={{ backgroundColor: '#8b5cf6', borderRadius: '4px' }}>
+                        <span className="text-[9px] font-bold text-white">{t("Merge", "병합")}</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="p-1 text-center" style={{ backgroundColor: '#ede9fe', borderRadius: '4px' }}>
+                          <p className="text-[7px] font-medium" style={{ color: '#6d28d9' }}>{t("Deduplicate", "중복 제거")}</p>
+                        </div>
+                        <div className="p-1 text-center" style={{ backgroundColor: '#ede9fe', borderRadius: '4px' }}>
+                          <p className="text-[7px] font-medium" style={{ color: '#6d28d9' }}>{t("Score Ranking", "점수 랭킹")}</p>
+                        </div>
+                        <div className="p-1 text-center" style={{ backgroundColor: '#ede9fe', borderRadius: '4px' }}>
+                          <p className="text-[7px] font-medium" style={{ color: '#6d28d9' }}>CRAG</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex items-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+
+                  {/* Right: Output / Benefits */}
+                  <div className="flex flex-col items-center" style={{ width: '160px' }}>
+                    <div className="px-3 py-1.5 text-center mb-2 w-full" style={{ backgroundColor: '#3d5a47', borderRadius: '6px' }}>
+                      <span className="text-[10px] font-bold text-white tracking-[-0.025em]">{t("Enhanced Context", "강화된 컨텍스트")}</span>
+                    </div>
+                    <div className="w-full p-2 border" style={{ backgroundColor: '#e8f5ec', borderColor: '#c8e6cf', borderRadius: '8px' }}>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[8px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Semantic + Structured", "의미적 + 구조적")}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[8px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Legal precedent links", "판례 연결")}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[8px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Risk pattern detection", "위험 패턴 탐지")}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#4a9a5b', borderRadius: '50%' }}>
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <span className="text-[8px] tracking-[-0.025em]" style={{ color: '#1a1a1a' }}>{t("Multi-hop reasoning", "다중 홉 추론")}</span>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="mt-2 pt-2 border-t flex justify-between" style={{ borderColor: '#c8e6cf' }}>
+                        <div className="text-center">
+                          <p className="text-[10px] font-bold" style={{ color: '#3d5a47' }}>15,261</p>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("Nodes", "노드")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] font-bold" style={{ color: '#3d5a47' }}>1,357</p>
+                          <p className="text-[6px]" style={{ color: '#6b7280' }}>{t("Edges", "엣지")}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 17: // Conclusion
         return (
           <div className="flex flex-col items-center justify-center h-full text-white px-8 relative overflow-hidden">
             {/* Background elements matching title slide */}

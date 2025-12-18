@@ -100,3 +100,6 @@ storage/
 # Alembic (설정 파일은 추적, __pycache__만 무시)
 alembic/versions/__pycache__/
 /backend/alembic/versions/__pycache__/
+
+# Evaluation results
+evaluation/results/

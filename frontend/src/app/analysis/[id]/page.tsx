@@ -1523,6 +1523,101 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
                     </div>
                   )}
 
+                  {/* 분석 신뢰도 - LLM-as-a-Judge 결과 */}
+                  {analysis?.judgment && (analysis.judgment.overall_score || analysis.judgment.confidence_level) && (
+                    <div className="card-apple p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 rounded-xl bg-[#e8f0ea] flex items-center justify-center">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#3d5a47]">
+                            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 tracking-tight">분석 신뢰도</h3>
+                        {/* 신뢰도 레벨 뱃지 */}
+                        {analysis.judgment.confidence_level && (
+                          <span className={cn(
+                            "ml-auto text-xs font-semibold px-2.5 py-1 rounded-full",
+                            analysis.judgment.confidence_level.toUpperCase() === "HIGH"
+                              ? "bg-[#e8f5ec] text-[#3d7a4a] border border-[#c8e6cf]"
+                              : analysis.judgment.confidence_level.toUpperCase() === "MEDIUM"
+                              ? "bg-[#fef7e0] text-[#9a7b2d] border border-[#f5e6b8]"
+                              : "bg-[#fdedec] text-[#b54a45] border border-[#f5c6c4]"
+                          )}>
+                            {analysis.judgment.confidence_level.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 점수 표시 - 백엔드에서 0-1 스케일로 반환 */}
+                      {analysis.judgment.overall_score !== undefined && (
+                        (() => {
+                          // 백엔드가 0-1 스케일이면 100을 곱해서 표시
+                          const scorePercent = analysis.judgment.overall_score <= 1
+                            ? analysis.judgment.overall_score * 100
+                            : analysis.judgment.overall_score;
+                          return (
+                            <div className="mb-4">
+                              <div className="flex items-baseline gap-2 mb-2">
+                                <span className="text-3xl font-bold text-gray-900 tracking-tight">
+                                  {scorePercent.toFixed(1)}
+                                </span>
+                                <span className="text-lg text-gray-400 font-medium">/ 100</span>
+                              </div>
+                              {/* 프로그레스 바 */}
+                              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full transition-all duration-500",
+                                    scorePercent >= 80
+                                      ? "bg-gradient-to-r from-[#4a9a5b] to-[#3d7a4a]"
+                                      : scorePercent >= 60
+                                      ? "bg-gradient-to-r from-[#d4a84d] to-[#9a7b2d]"
+                                      : "bg-gradient-to-r from-[#c94b45] to-[#b54a45]"
+                                  )}
+                                  style={{ width: `${Math.min(scorePercent, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()
+                      )}
+
+                      {/* 판정 결과 */}
+                      {analysis.judgment.verdict && (
+                        <p className="text-base text-gray-600 leading-relaxed mb-4">
+                          {analysis.judgment.verdict}
+                        </p>
+                      )}
+
+                      {/* 권장 사항 */}
+                      {analysis.judgment.recommendations && analysis.judgment.recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          {analysis.judgment.recommendations.map((rec, idx) => (
+                            <div key={idx} className="flex items-start gap-2">
+                              <div className={cn(
+                                "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                                rec.startsWith("!") || rec.includes("주의") || rec.includes("권장")
+                                  ? "bg-[#fef7e0]"
+                                  : "bg-[#e8f5ec]"
+                              )}>
+                                {rec.startsWith("!") || rec.includes("주의") || rec.includes("권장") ? (
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-[#9a7b2d]">
+                                    <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                ) : (
+                                  <IconCheck size={12} className="text-[#3d7a4a]" />
+                                )}
+                              </div>
+                              <span className="text-sm text-gray-600 leading-relaxed">
+                                {rec.startsWith("!") ? rec.slice(1).trim() : rec}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* 주요 이슈 */}
                   {riskClauses.length > 0 && (
                     <div>

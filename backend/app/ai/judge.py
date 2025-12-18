@@ -175,33 +175,34 @@ class LLMJudge:
    - 법원/노동부의 공식 해석과 일치하는가?
    - 판례와 모순되지 않는가?
 
-4. 치명적 오류 판단 기준
-   - 치명적 오류: 결론을 뒤집을 수 있는 중대한 사실 오류
-   - 예: 법령 조항 번호 오류, 핵심 수치 오류
-   - 비치명적 오류: 결론에 영향 없는 사소한 오류
+4. 치명적 오류 판단 기준 (엄격히 적용)
+   - 치명적 오류 (critical_errors: true):
+     * 존재하지 않는 법령 조항 인용
+     * 핵심 수치 오류 (예: 연장수당 1.2배 → 실제 1.5배)
+     * 위법을 적법이라고 판단
+   - 비치명적 오류 (critical_errors: false):
+     * 적용 조건 미명시 (예: "5인 이상" 조건 누락)
+     * 세부 예외사항 미언급
+     * 방향성은 맞지만 디테일 부족
 
 ---
 [Few-shot 예시]
 
-예시 1 - 오류 발견:
-분석: "근로기준법 제50조에 따라 주 40시간을 초과하면 즉시 위법입니다."
-검토: {{
-    "fact_errors": [{{
-        "claim": "주 40시간 초과 시 즉시 위법",
-        "issue": "연장근로 12시간까지 합법 (주 52시간)",
-        "correct_info": "근로기준법 제53조에 따라 주 12시간 연장근로 가능"
-    }}],
-    "accuracy_score": 5,
-    "critical_errors": true
-}}
+예시 1 - 치명적 오류 (수치 틀림):
+분석: "연장근로 수당은 통상임금의 1.2배입니다."
+검토: {{"fact_errors": [{{"claim": "연장근로 수당 1.2배", "issue": "수치 오류", "correct_info": "실제는 1.5배"}}], "accuracy_score": 3, "critical_errors": true}}
 
-예시 2 - 오류 없음:
+예시 2 - 비치명적 (조건 누락, critical_errors는 false):
+분석: "공휴일은 유급휴일입니다."
+검토: {{"fact_errors": [{{"claim": "공휴일 유급휴일", "issue": "5인 이상 사업장 조건 미명시", "correct_info": "관공서 공휴일 규정은 5인 이상 사업장에 적용"}}], "accuracy_score": 7, "critical_errors": false}}
+
+예시 3 - 비치명적 (예외 미언급, critical_errors는 false):
+분석: "52시간을 초과하면 위법입니다."
+검토: {{"fact_errors": [{{"claim": "52시간 초과 위법", "issue": "5인 미만 사업장 예외 미언급", "correct_info": "5인 이상 사업장에 적용"}}], "accuracy_score": 8, "critical_errors": false}}
+
+예시 4 - 오류 없음:
 분석: "근로기준법 제26조에 따라 해고 30일 전 예고가 필요합니다."
-검토: {{
-    "fact_errors": [],
-    "accuracy_score": 10,
-    "critical_errors": false
-}}
+검토: {{"fact_errors": [], "accuracy_score": 10, "critical_errors": false}}
 
 ---
 [출력 형식 - JSON]
@@ -484,7 +485,24 @@ class LLMJudge:
                 if result_text.startswith("```"):
                     result_text = re.sub(r'^```(?:json)?\s*', '', result_text)
                     result_text = re.sub(r'\s*```$', '', result_text)
-                return json.loads(result_text)
+                fact_result = json.loads(result_text)
+
+                # 팩트체크 결과 로깅
+                print(f"\n{'='*60}")
+                print(f"[FACT CHECK RESULT]")
+                print(f"Critical Errors: {fact_result.get('critical_errors', False)}")
+                print(f"Accuracy Score: {fact_result.get('accuracy_score', 'N/A')}")
+                if fact_result.get('fact_errors'):
+                    print(f"Fact Errors Found:")
+                    for i, err in enumerate(fact_result.get('fact_errors', []), 1):
+                        print(f"  {i}. Claim: {err.get('claim', 'N/A')}")
+                        print(f"     Issue: {err.get('issue', 'N/A')}")
+                        print(f"     Correct: {err.get('correct_info', 'N/A')}")
+                else:
+                    print(f"No fact errors found")
+                print(f"{'='*60}\n")
+
+                return fact_result
 
             # OpenAI fallback
             else:
@@ -517,7 +535,24 @@ class LLMJudge:
                         duration_ms=llm_duration
                     )
 
-                return json.loads(response.choices[0].message.content)
+                fact_result = json.loads(response.choices[0].message.content)
+
+                # 팩트체크 결과 로깅 (OpenAI)
+                print(f"\n{'='*60}")
+                print(f"[FACT CHECK RESULT - OpenAI]")
+                print(f"Critical Errors: {fact_result.get('critical_errors', False)}")
+                print(f"Accuracy Score: {fact_result.get('accuracy_score', 'N/A')}")
+                if fact_result.get('fact_errors'):
+                    print(f"Fact Errors Found:")
+                    for i, err in enumerate(fact_result.get('fact_errors', []), 1):
+                        print(f"  {i}. Claim: {err.get('claim', 'N/A')}")
+                        print(f"     Issue: {err.get('issue', 'N/A')}")
+                        print(f"     Correct: {err.get('correct_info', 'N/A')}")
+                else:
+                    print(f"No fact errors found")
+                print(f"{'='*60}\n")
+
+                return fact_result
 
         except Exception as e:
             print(f"Fact check error: {e}")

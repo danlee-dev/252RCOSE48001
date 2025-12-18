@@ -159,7 +159,7 @@ async def search_graph_db(clause_type: str, keywords: list[str]) -> str:
             MATCH (r:RiskPattern)
             WHERE any(kw IN $keywords WHERE
                 r.name CONTAINS kw OR
-                toString(r.triggers) CONTAINS kw
+                any(t IN r.triggers WHERE t CONTAINS kw)
             )
             OPTIONAL MATCH (r)-[:RELATES_TO]->(d:Document)
             RETURN r.name AS pattern_name,

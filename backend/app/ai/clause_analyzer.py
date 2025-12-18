@@ -1268,10 +1268,7 @@ class LLMClauseAnalyzer:
                 query = """
                 MATCH (r:RiskPattern)
                 WHERE any(trigger IN $triggers WHERE
-                    (r.triggers IS NOT NULL AND (
-                        any(t IN r.triggers WHERE t CONTAINS trigger)
-                        OR toString(r.triggers) CONTAINS trigger
-                    ))
+                    (r.triggers IS NOT NULL AND any(t IN r.triggers WHERE t CONTAINS trigger))
                     OR r.name CONTAINS trigger
                 )
                 OPTIONAL MATCH (r)-[:RELATES_TO]->(d:Document)
