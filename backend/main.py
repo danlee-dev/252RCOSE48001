@@ -18,7 +18,7 @@ load_dotenv(dotenv_path=project_root / ".env")
 
 from app.core.database import engine, Base
 from app.core.initializers import run_all_initializers
-from app.api.v1 import auth, contracts, users, analysis, search, chat, agent_chat, scan, checklist
+from app.api.v1 import auth, contracts, users, analysis, search, chat, agent_chat, scan, checklist, legal_notice
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -69,9 +69,11 @@ app.include_router(contracts.router, prefix="/api/v1/contracts", tags=["Contract
 app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["Advanced AI Analysis"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["Legal Search (Dify Tool)"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat with Agent"])
-app.include_router(agent_chat.router, prefix="/api/v1", tags=["LangGraph Agent"])
-app.include_router(scan.router, prefix="/api/v1", tags=["Quick Scan"])
+# agent_chat은 내부적으로 /stream, /history 등의 경로를 가지므로 prefix를 /api/v1으로 유지하거나 조정 가능
+app.include_router(agent_chat.router, prefix="/api/v1/agent", tags=["LangGraph Agent"]) 
+app.include_router(scan.router, prefix="/api/v1/scan", tags=["Quick Scan"])
 app.include_router(checklist.router, prefix="/api/v1/checklist", tags=["Checklist"])
+app.include_router(legal_notice.router, prefix="/api/v1/legal-notice", tags=["Legal Notice"])
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
