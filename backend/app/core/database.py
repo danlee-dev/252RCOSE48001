@@ -23,3 +23,8 @@ async def get_db():
             yield session
         finally:
             await session.close()
+
+
+from app.models.user import User
+from app.models.contract import Contract
+from app.models.legal_notice import LegalNoticeSession

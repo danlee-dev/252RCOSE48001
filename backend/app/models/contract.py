@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.core.timezone import now_utc
 
-
 class Contract(Base):
     __tablename__ = "contracts"
 
@@ -20,14 +19,21 @@ class Contract(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
     user = relationship("User", backref="contracts")
-    versions = relationship("DocumentVersion", back_populates="contract", order_by="DocumentVersion.version_number")
-
+    
+    # cascade="all, delete-orphan" 추가 (계약서 삭제 시 버전들도 같이 삭제됨)
+    versions = relationship(
+        "DocumentVersion", 
+        back_populates="contract", 
+        order_by="DocumentVersion.version_number",
+        cascade="all, delete-orphan" 
+    )
 
 class DocumentVersion(Base):
     """문서 버전 관리 테이블 - Google Docs 스타일 버전 히스토리"""
     __tablename__ = "document_versions"
 
     id = Column(Integer, primary_key=True, index=True)
+    # ondelete="CASCADE"는 DB 레벨 설정, cascade="..."는 ORM 레벨 설정
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
 
     version_number = Column(Integer, nullable=False, default=1)
