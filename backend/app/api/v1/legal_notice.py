@@ -1,10 +1,10 @@
 import uuid
 import json
 from datetime import datetime
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, desc
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -18,7 +18,9 @@ from app.schemas.legal_notice import (
     LegalNoticeStartRequest, LegalNoticeSessionResponse,
     LegalNoticeChatRequest, LegalNoticeChatResponse,
     LegalNoticeGenerateRequest, LegalNoticeResultResponse,
-    EvidenceGuideResponse, ViolationEvidenceGuide
+    EvidenceGuideResponse, ViolationEvidenceGuide,
+    LegalNoticeSessionListItem, LegalNoticeSessionListResponse,
+    LegalNoticeSessionDetail
 )
 
 router = APIRouter()
@@ -56,8 +58,11 @@ async def get_evidence_guide(
     if not contract.analysis_result:
         raise HTTPException(status_code=400, detail="Analysis not ready")
 
-    # Agent에게 분석 결과 전달하여 가이드 생성
-    guide_text = agent.generate_evidence_guide(contract.analysis_result)
+    # Agent에게 분석 결과 및 계약서 전문 전달하여 가이드 생성
+    guide_text = agent.generate_evidence_guide(
+        analysis_result=contract.analysis_result,
+        contract_text=contract.extracted_text or ""
+    )
     
     return EvidenceGuideResponse(
         guides=[
@@ -218,23 +223,257 @@ async def generate_legal_notice(
     contract = result_contract.scalars().first()
 
     analysis_summary = ""
-    if contract and contract.analysis_result:
-        # 분석 결과를 문자열로 요약 (너무 길면 잘릴 수 있으니 3000자로 제한)
-        analysis_summary = json.dumps(contract.analysis_result, ensure_ascii=False)[:3000]
-    
-    # Agent에게 작성 요청
+    analysis_result = {}
+    contract_text = ""
+    if contract:
+        if contract.analysis_result:
+            analysis_result = contract.analysis_result
+            analysis_summary = json.dumps(contract.analysis_result, ensure_ascii=False)[:3000]
+        if contract.extracted_text:
+            contract_text = contract.extracted_text
+
+    # Agent에게 내용증명 작성 요청
     final_content = agent.write_legal_notice(
         collected_info=session.collected_info,
         analysis_summary=analysis_summary
     )
-    
+
+    # 증거수집 전략 생성 (분석 결과 + 계약서 전문 + 피해현황 종합)
+    evidence_guide = ""
+    if analysis_result:
+        evidence_guide = agent.generate_evidence_guide(
+            analysis_result=analysis_result,
+            contract_text=contract_text,
+            collected_info=session.collected_info
+        )
+
     session.final_content = final_content
+    session.evidence_guide = evidence_guide
     session.status = "completed"
-    
+
     await db.commit()
     
     return LegalNoticeResultResponse(
         title=f"내용증명서_{session.collected_info.get('sender_name', '본인')}",
         content=final_content,
         generated_at=datetime.now()
+    )
+
+
+# --- 세션 관리 API ---
+
+@router.get(
+    "/sessions",
+    response_model=LegalNoticeSessionListResponse,
+    summary="내용증명 세션 목록 조회",
+    description="현재 사용자의 내용증명 세션 목록을 조회합니다."
+)
+async def list_sessions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, description="상태 필터 (collecting, generating, completed)"),
+    search: Optional[str] = Query(None, description="검색어 (제목)"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Base query
+    base_query = select(LegalNoticeSession).where(
+        LegalNoticeSession.user_id == current_user.id
+    )
+
+    # Status filter
+    if status_filter:
+        base_query = base_query.where(LegalNoticeSession.status == status_filter)
+
+    # Search filter
+    if search:
+        base_query = base_query.where(LegalNoticeSession.title.ilike(f"%{search}%"))
+
+    # Count total
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Get items with pagination
+    items_query = base_query.order_by(desc(LegalNoticeSession.created_at)).offset(skip).limit(limit)
+    result = await db.execute(items_query)
+    sessions = result.scalars().all()
+
+    # Get contract titles
+    contract_ids = [s.contract_id for s in sessions if s.contract_id]
+    contracts_map = {}
+    if contract_ids:
+        contracts_query = select(Contract).where(Contract.id.in_(contract_ids))
+        contracts_result = await db.execute(contracts_query)
+        for c in contracts_result.scalars().all():
+            contracts_map[c.id] = c.title
+
+    # Build response items
+    items = []
+    for session in sessions:
+        items.append(LegalNoticeSessionListItem(
+            id=session.id,
+            title=session.title,
+            status=session.status,
+            contract_id=session.contract_id,
+            contract_title=contracts_map.get(session.contract_id) if session.contract_id else None,
+            created_at=session.created_at,
+            updated_at=session.updated_at
+        ))
+
+    # Calculate stats
+    stats_query = select(
+        LegalNoticeSession.status,
+        func.count(LegalNoticeSession.id)
+    ).where(
+        LegalNoticeSession.user_id == current_user.id
+    ).group_by(LegalNoticeSession.status)
+
+    stats_result = await db.execute(stats_query)
+    stats = {"collecting": 0, "generating": 0, "completed": 0, "total": 0}
+    for row in stats_result:
+        stats[row[0]] = row[1]
+        stats["total"] += row[1]
+
+    return LegalNoticeSessionListResponse(
+        items=items,
+        total=total,
+        stats=stats
+    )
+
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=LegalNoticeSessionDetail,
+    summary="내용증명 세션 상세 조회",
+    description="특정 세션의 상세 정보를 조회합니다."
+)
+async def get_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = select(LegalNoticeSession).where(
+        LegalNoticeSession.id == session_id,
+        LegalNoticeSession.user_id == current_user.id
+    )
+    result = await db.execute(query)
+    session = result.scalars().first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Get contract title if exists
+    contract_title = None
+    if session.contract_id:
+        contract_query = select(Contract).where(Contract.id == session.contract_id)
+        contract_result = await db.execute(contract_query)
+        contract = contract_result.scalars().first()
+        if contract:
+            contract_title = contract.title
+
+    return LegalNoticeSessionDetail(
+        id=session.id,
+        title=session.title,
+        status=session.status,
+        contract_id=session.contract_id,
+        contract_title=contract_title,
+        messages=session.messages or [],
+        collected_info=session.collected_info or {},
+        final_content=session.final_content,
+        evidence_guide=session.evidence_guide,
+        damage_summary=session.damage_summary,
+        created_at=session.created_at,
+        updated_at=session.updated_at
+    )
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="내용증명 세션 삭제",
+    description="특정 세션을 삭제합니다."
+)
+async def delete_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = select(LegalNoticeSession).where(
+        LegalNoticeSession.id == session_id,
+        LegalNoticeSession.user_id == current_user.id
+    )
+    result = await db.execute(query)
+    session = result.scalars().first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    await db.delete(session)
+    await db.commit()
+
+    return None
+
+
+@router.patch(
+    "/sessions/{session_id}/contract",
+    response_model=LegalNoticeSessionDetail,
+    summary="세션에 계약서 연결",
+    description="진행 중인 세션에 분석된 계약서를 연결합니다."
+)
+async def link_contract_to_session(
+    session_id: str,
+    contract_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Get session
+    session_query = select(LegalNoticeSession).where(
+        LegalNoticeSession.id == session_id,
+        LegalNoticeSession.user_id == current_user.id
+    )
+    session_result = await db.execute(session_query)
+    session = session_result.scalars().first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Verify contract exists and belongs to user
+    contract_query = select(Contract).where(
+        Contract.id == contract_id,
+        Contract.user_id == current_user.id
+    )
+    contract_result = await db.execute(contract_query)
+    contract = contract_result.scalars().first()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    # Update session
+    session.contract_id = contract_id
+
+    # Generate evidence guide if contract has analysis (preliminary - will be regenerated at /generate)
+    if contract.analysis_result:
+        session.evidence_guide = agent.generate_evidence_guide(
+            analysis_result=contract.analysis_result,
+            contract_text=contract.extracted_text or "",
+            collected_info=session.collected_info
+        )
+
+    await db.commit()
+    await db.refresh(session)
+
+    return LegalNoticeSessionDetail(
+        id=session.id,
+        title=session.title,
+        status=session.status,
+        contract_id=session.contract_id,
+        contract_title=contract.title,
+        messages=session.messages or [],
+        collected_info=session.collected_info or {},
+        final_content=session.final_content,
+        evidence_guide=session.evidence_guide,
+        damage_summary=session.damage_summary,
+        created_at=session.created_at,
+        updated_at=session.updated_at
     )

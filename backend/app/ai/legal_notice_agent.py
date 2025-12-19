@@ -7,41 +7,67 @@ class LegalNoticeAgent:
     def __init__(self):
         self.llm = get_llm_client()
 
-    def generate_evidence_guide(self, analysis_result: Dict[str, Any]) -> str:
+    def generate_evidence_guide(
+        self,
+        analysis_result: Dict[str, Any],
+        contract_text: str = "",
+        collected_info: Dict[str, Any] = None
+    ) -> str:
         """
-        계약서 분석 결과(위반 사항)를 바탕으로 맞춤형 증거 수집 가이드 생성함.
+        계약서 분석 결과, 계약서 전문, 사용자 피해현황을 종합하여 맞춤형 증거 수집 가이드 생성함.
         """
         # 분석 결과에서 위반 사항 추출
-        # stress_test나 redlining 등 유효한 정보가 있는 곳을 우선 탐색함
         violations = []
         if "stress_test" in analysis_result and "violations" in analysis_result["stress_test"]:
             violations = analysis_result["stress_test"]["violations"]
         elif "violations" in analysis_result:
             violations = analysis_result["violations"]
-            
-        # 모든 위반 사항을 포함하여 문자열로 변환함 (개수 제한 제거)
-        violations_text = json.dumps(violations, ensure_ascii=False)
-        
-        prompt = f"""
-        당신은 노동법 전문 변호사입니다. 
-        아래 분석된 근로계약서의 모든 위반 사항들을 입증하기 위해 근로자가 반드시 확보해야 할 '증거 자료'들을 안내해 주세요.
 
-        [위반 사항 목록]
+        violations_text = json.dumps(violations, ensure_ascii=False)
+
+        # 사용자 피해현황 텍스트 구성
+        damage_info = ""
+        if collected_info:
+            damage_info = f"""
+        [사용자 피해 현황]
+        - 발신인: {collected_info.get('sender_name', '미상')}
+        - 회사명: {collected_info.get('recipient_company', '미상')}
+        - 입사일: {collected_info.get('employment_start_date', '미상')}
+        - 퇴사일: {collected_info.get('employment_end_date', '해당없음')}
+        - 주요 피해 내용: {collected_info.get('main_damage_summary', '미상')}
+        """
+
+        # 계약서 전문 (너무 길면 앞부분만)
+        contract_excerpt = ""
+        if contract_text:
+            contract_excerpt = f"""
+        [계약서 전문 (참고)]
+        {contract_text[:3000]}{"..." if len(contract_text) > 3000 else ""}
+        """
+
+        prompt = f"""
+        당신은 노동법 전문 변호사입니다.
+        아래 정보를 종합하여, 근로자가 피해를 입증하기 위해 반드시 확보해야 할 '증거 자료'들을 안내해 주세요.
+
+        [계약서 위반 사항 분석 결과]
         {violations_text}
+        {damage_info}
+        {contract_excerpt}
 
         [작성 지침]
-        1. 목록에 있는 **모든 위반 사항**에 대해 빠짐없이 다루세요.
+        1. 위반 사항과 사용자의 피해 현황을 종합하여 **맞춤형** 증거 수집 가이드를 작성하세요.
         2. 각 위반 항목별로 '필수 증거'와 '보조 증거'를 구분하여 목록화하세요.
         3. 증거 수집 방법(예: 녹음 시 주의사항, 카톡 캡처 방법, 교통카드 내역 조회법, 근로자 노트 작성법 등)을 아주 구체적이고 실천적인 꿀팁으로 제공하세요.
-        4. 마크다운(Markdown) 형식으로 가독성 있게 작성하세요.
+        4. 사용자의 구체적인 피해 상황(임금체불, 부당해고 등)에 맞는 증거 수집 우선순위를 제안하세요.
+        5. 마크다운(Markdown) 형식으로 가독성 있게 작성하세요.
+        6. 제목(#, ##, ### 등) 아래에 수평선(---)을 사용하지 마세요.
         """
-        
-        # Reasoning 모델(GPT) 사용하여 정확하고 상세한 가이드 생성
+
         response = self.llm.generate(
             prompt=prompt,
             task=LLMTask.REASONING,
             temperature=0.5,
-            max_tokens=4000  # 토큰 제한을 4000으로 늘려 답변이 잘리지 않게 함
+            max_tokens=4000
         )
         return response.content
 
@@ -139,6 +165,7 @@ class LegalNoticeAgent:
         4. 미지급 임금 지급 등 구체적인 요구사항과 이행 기한(예: 수령 후 7일 이내)을 명시하세요.
         5. 불이행 시 고용노동부 진정 및 민/형사상 법적 조치를 취하겠다는 강력한 경고를 포함하세요.
         6. 전체 내용은 마크다운(Markdown) 형식으로 작성하세요.
+        7. 제목(#, ##, ### 등) 아래에 수평선(---)을 사용하지 마세요. 마크다운 렌더링 시 헤딩 자체가 시각적 구분을 제공합니다.
         """
         
         response = self.llm.generate(

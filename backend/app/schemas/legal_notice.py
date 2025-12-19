@@ -39,8 +39,7 @@ class EvidenceGuideResponse(BaseModel):
 
 class LegalNoticeStartRequest(BaseModel):
     """세션 시작 요청"""
-    contract_id: int = Field(..., description="분석된 계약서 ID")
-    # 회원 정보 외 추가 정보 입력을 위해 선택적 필드로 구성함
+    contract_id: Optional[int] = Field(None, description="분석된 계약서 ID (선택)")
     sender_info: Optional[LegalNoticeSender] = None
     recipient_info: Optional[LegalNoticeRecipient] = None
 
@@ -50,6 +49,41 @@ class LegalNoticeSessionResponse(BaseModel):
     status: str = Field(..., description="세션 상태 (collecting, generating, completed)")
     missing_info: List[str] = Field(default=[], description="아직 수집되지 않은 필수 정보 목록")
     ai_message: str = Field(..., description="AI의 첫 인사말 또는 질문")
+
+# --- 3.1 세션 목록 조회 (GET /sessions) ---
+
+class LegalNoticeSessionListItem(BaseModel):
+    """세션 목록 아이템"""
+    id: str
+    title: Optional[str] = None
+    status: str
+    contract_id: Optional[int] = None
+    contract_title: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class LegalNoticeSessionListResponse(BaseModel):
+    """세션 목록 응답"""
+    items: List[LegalNoticeSessionListItem]
+    total: int
+    stats: Dict[str, int] = Field(default_factory=dict)
+
+# --- 3.2 세션 상세 조회 (GET /sessions/{id}) ---
+
+class LegalNoticeSessionDetail(BaseModel):
+    """세션 상세 응답"""
+    id: str
+    title: Optional[str] = None
+    status: str
+    contract_id: Optional[int] = None
+    contract_title: Optional[str] = None
+    messages: List[Dict[str, Any]]
+    collected_info: Dict[str, Any]
+    final_content: Optional[str] = None
+    evidence_guide: Optional[str] = None
+    damage_summary: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
 # --- 4. 대화형 정보 수집 (POST /chat) ---
 
