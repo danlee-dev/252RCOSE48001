@@ -22,7 +22,7 @@ from app.api.deps import get_current_user
 from app.ai.langgraph_agent import get_chat_agent, StreamEvent
 
 
-router = APIRouter(prefix="/agent", tags=["Agent Chat"])
+router = APIRouter(tags=["Agent Chat"])
 
 
 def build_analysis_summary(analysis_result: dict) -> str:

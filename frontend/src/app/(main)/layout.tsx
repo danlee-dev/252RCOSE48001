@@ -973,7 +973,7 @@ export default function MainLayout({
       </nav>
 
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 z-20 px-4 sm:px-6 py-4 lg:hidden">
+      <header className="fixed top-0 left-0 right-0 z-20 px-4 sm:px-6 py-4 lg:hidden bg-[#f0f5f1]/85 backdrop-blur-xl border-b border-gray-200/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Logo size={36} color="#111827" />

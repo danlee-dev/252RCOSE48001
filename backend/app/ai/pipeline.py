@@ -668,8 +668,22 @@ class AdvancedAIPipeline:
                 logger.log_step("Judge", "started", input_summary="Evaluating analysis reliability")
                 try:
                     context = "\n".join([d.get("text", "") for d in retrieved_docs[:3]])
+
+                    # Judge에 전달할 상세 분석 텍스트 구성 (제목 + 상세 설명 포함)
+                    judge_analysis_text = result.analysis_summary + "\n\n"
+                    if result.clause_analysis and result.clause_analysis.violations:
+                        judge_analysis_text += "[위반 사항 상세]\n"
+                        for v in result.clause_analysis.violations[:5]:  # 상위 5개
+                            judge_analysis_text += f"- {v.violation_type}: {v.description}\n"
+                            judge_analysis_text += f"  법적 근거: {v.legal_basis}\n\n"
+                    elif result.stress_test and result.stress_test.violations:
+                        judge_analysis_text += "[위반 사항 상세]\n"
+                        for v in result.stress_test.violations[:5]:
+                            judge_analysis_text += f"- {v.get('type', '')}: {v.get('description', '')}\n"
+                            judge_analysis_text += f"  법적 근거: {v.get('legal_basis', '')}\n\n"
+
                     result.judgment = self.judge.evaluate(
-                        result.analysis_summary,
+                        judge_analysis_text,
                         context=context
                     )
                     logger.log_step(

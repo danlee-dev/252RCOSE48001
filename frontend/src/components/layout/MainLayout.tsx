@@ -617,6 +617,7 @@ export function MainLayout({ children, user, onUploadSuccess, stats }: MainLayou
       {/* Minimal Header */}
       <header className={cn(
         "fixed top-0 left-0 right-0 z-20 px-4 sm:px-6 py-4 transition-all duration-500 ease-out",
+        "bg-[#f0f5f1]/80 backdrop-blur-xl border-b border-gray-200/50 lg:bg-transparent lg:backdrop-blur-none lg:border-b-0",
         sidebarExpanded ? "lg:pl-64" : "lg:pl-24"
       )}>
         <div className="flex items-center justify-between">
