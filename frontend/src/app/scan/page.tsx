@@ -28,7 +28,9 @@ interface QuickScanResult {
 interface DetectedClause {
   text: string;
   risk_level: "HIGH" | "MEDIUM" | "LOW";
-  keyword: string;
+  reason: string;
+  clause_number?: number;
+  keyword?: string;
   bbox?: { x: number; y: number; width: number; height: number };
 }
 
@@ -84,6 +86,12 @@ export default function ScanPage() {
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
+
+  // Bottom sheet drag state
+  const bottomSheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number>(0);
+  const isDragging = useRef<boolean>(false);
+  const [sheetHeight, setSheetHeight] = useState(40); // vh units (40 = collapsed, 90 = expanded)
 
   // Auth check
   useEffect(() => {
@@ -263,6 +271,44 @@ export default function ScanPage() {
       }
     });
   };
+
+  // Bottom sheet drag handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    isDragging.current = true;
+    dragStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+
+    const currentY = e.touches[0].clientY;
+    const deltaY = dragStartY.current - currentY; // positive = dragging up
+    const viewportHeight = window.innerHeight;
+
+    // Convert pixel delta to vh units
+    const deltaVh = (deltaY / viewportHeight) * 100;
+
+    // Calculate new height based on current state
+    const baseHeight = isBottomSheetExpanded ? 90 : 40;
+    const newHeight = Math.min(90, Math.max(40, baseHeight + deltaVh));
+
+    setSheetHeight(newHeight);
+  }, [isBottomSheetExpanded]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    const threshold = 65; // vh midpoint between 40 and 90
+
+    if (sheetHeight > threshold) {
+      setIsBottomSheetExpanded(true);
+      setSheetHeight(90);
+    } else {
+      setIsBottomSheetExpanded(false);
+      setSheetHeight(40);
+    }
+  }, [sheetHeight]);
 
   // Reset scan
   const resetScan = useCallback(() => {
@@ -489,15 +535,17 @@ export default function ScanPage() {
 
       {/* Scan Result Panel */}
       {scanResult && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 animate-slideUp pb-[env(safe-area-inset-bottom)]">
+        <div
+          ref={bottomSheetRef}
+          className="absolute bottom-0 left-0 right-0 z-30 animate-slideUp pb-[env(safe-area-inset-bottom)]"
+        >
           {/* Outer wrapper for rounded corners */}
           <div className="w-full rounded-t-[24px] shadow-2xl overflow-hidden bg-[#f8f9fa]">
             <div
-              className={cn(
-                "w-full overflow-y-auto scrollbar-hide transition-all duration-300 ease-out",
-                isBottomSheetExpanded ? "max-h-[90vh]" : "max-h-[40vh]"
-              )}
+              className="w-full overflow-y-auto scrollbar-hide"
               style={{
+                maxHeight: `${sheetHeight}vh`,
+                transition: isDragging.current ? 'none' : 'max-height 0.3s ease-out',
                 background: `
                   linear-gradient(to bottom, #f8f9fa, #f8f9fa),
                   radial-gradient(ellipse 80% 60% at 5% 15%, rgba(220, 235, 224, 0.95) 0%, transparent 55%),
@@ -507,10 +555,17 @@ export default function ScanPage() {
                 backgroundAttachment: 'local'
               }}
             >
-            {/* Sticky Header (Handle + Title) - Clickable to expand/collapse */}
+            {/* Sticky Header (Handle + Title) - Draggable to expand/collapse */}
             <div
-              className="sticky top-0 z-10 bg-[#f8f9fa]/95 backdrop-blur-sm rounded-t-[24px] border-b border-[#3d5a47]/10 cursor-pointer active:bg-[#f0f2f0]/95 transition-colors"
-              onClick={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+              className="sticky top-0 z-10 bg-[#f8f9fa]/95 backdrop-blur-sm rounded-t-[24px] border-b border-[#3d5a47]/10 cursor-grab active:cursor-grabbing active:bg-[#f0f2f0]/95 transition-colors touch-none"
+              onClick={() => {
+                const newExpanded = !isBottomSheetExpanded;
+                setIsBottomSheetExpanded(newExpanded);
+                setSheetHeight(newExpanded ? 90 : 40);
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             >
               {/* Handle */}
               <div className="flex justify-center pt-3 pb-2">
@@ -526,7 +581,7 @@ export default function ScanPage() {
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 tracking-tight">스캔 결과</h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {(scanResult.scan_time_ms / 1000).toFixed(1)}초 소요 {!isBottomSheetExpanded && "- 탭하여 확장"}
+                      {(scanResult.scan_time_ms / 1000).toFixed(1)}초 소요 {!isBottomSheetExpanded && "- 위로 드래그하여 확장"}
                     </p>
                   </div>
                   {getRiskBadge(scanResult.risk_level)}
@@ -574,11 +629,18 @@ export default function ScanPage() {
                             )}>
                               {clause.risk_level === "HIGH" ? "HIGH" : clause.risk_level === "MEDIUM" ? "MEDIUM" : "LOW"}
                             </span>
+                            {clause.clause_number && (
+                              <span className="text-xs text-gray-500">
+                                제{clause.clause_number}조
+                              </span>
+                            )}
                           </div>
                           <p className="text-base text-gray-800 leading-relaxed">{clause.text}</p>
-                          <p className="text-xs text-gray-400 mt-2">
-                            키워드: {clause.keyword}
-                          </p>
+                          {clause.reason && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              {clause.reason}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
