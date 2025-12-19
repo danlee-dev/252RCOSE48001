@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import {
   IconZoomIn,
   IconZoomOut,
@@ -11,6 +13,7 @@ import {
   IconEdit,
   IconCheck,
   IconClose,
+  IconLoading,
 } from "@/components/icons";
 
 // 위험 조항 하이라이트 정보
@@ -644,10 +647,12 @@ export function PDFViewer({
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
   const highlightElementRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const documentRef = useRef<HTMLElement>(null);
   // 편집 모드 상태
   const [isEditMode, setIsEditMode] = useState(false);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 스크롤 인디케이터 로직
@@ -760,6 +765,74 @@ export function PDFViewer({
       setIsSaving(false);
     }
   }, [editText, extractedText, onTextChange, onSaveVersion]);
+
+  // PDF 다운로드 핸들러
+  const handleDownloadPdf = useCallback(async () => {
+    if (!documentRef.current) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const element = documentRef.current;
+
+      // 현재 스케일을 저장하고 100%로 리셋
+      const originalTransform = element.style.transform;
+      element.style.transform = "scale(1)";
+
+      // html2canvas로 캡처
+      const canvas = await html2canvas(element, {
+        scale: 2, // 고해상도
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      // 스케일 복원
+      element.style.transform = originalTransform;
+
+      // A4 사이즈 PDF 생성
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      // 이미지를 PDF 너비에 맞추고 비율 유지
+      const ratio = pdfWidth / imgWidth;
+      const scaledHeight = imgHeight * ratio;
+
+      // 여러 페이지 처리
+      let heightLeft = scaledHeight;
+      let position = 0;
+
+      // 첫 페이지
+      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, scaledHeight);
+      heightLeft -= pdfHeight;
+
+      // 추가 페이지
+      while (heightLeft > 0) {
+        position = heightLeft - scaledHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, scaledHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      // 다운로드
+      const fileName = viewingVersion && viewingVersion > 1
+        ? `계약서_수정본_v${viewingVersion}.pdf`
+        : "계약서_수정본.pdf";
+      pdf.save(fileName);
+    } catch (error) {
+      console.error("PDF 생성 실패:", error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [viewingVersion]);
 
   // 텍스트 선택 핸들링
   const handleMouseUp = useCallback(() => {
@@ -903,17 +976,33 @@ export function PDFViewer({
               </div>
             )}
 
-            {/* PDF Download */}
-            <a
-              href={normalizedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 h-11 px-5 text-base font-medium text-gray-600 bg-white border border-gray-200/60 hover:border-gray-300 hover:bg-gray-50 rounded-[12px] transition-all duration-200"
-              title="PDF 원본 보기"
-            >
-              <IconDownload size={18} />
-              <span className="hidden sm:inline">원본</span>
-            </a>
+            {/* PDF Download Buttons */}
+            <div className="flex items-center gap-2">
+              <a
+                href={normalizedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 h-11 px-5 text-base font-medium text-gray-600 bg-white border border-gray-200/60 hover:border-gray-300 hover:bg-gray-50 rounded-[12px] transition-all duration-200"
+                title="PDF 원본 보기"
+              >
+                <IconDownload size={18} />
+                <span className="hidden sm:inline">원본</span>
+              </a>
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="flex items-center justify-center gap-2 h-11 px-5 text-base font-medium text-white bg-[#3d5a47] hover:bg-[#4a6b52] rounded-[12px] transition-all duration-200 disabled:opacity-50"
+                title="수정본 PDF 다운로드"
+              >
+                {isGeneratingPdf ? (
+                  <IconLoading size={18} />
+                ) : (
+                  <IconDownload size={18} />
+                )}
+                <span className="hidden sm:inline">{isGeneratingPdf ? "생성 중..." : "수정본"}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -934,6 +1023,7 @@ export function PDFViewer({
             }}
           >
             <article
+              ref={documentRef}
               className={cn(
                 "relative card-apple p-6 sm:p-8 origin-top-left transition-transform duration-200",
                 // 편집 모드가 아닐 때만 최대 너비 제한

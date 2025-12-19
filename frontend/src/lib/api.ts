@@ -1,7 +1,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   body?: unknown;
   headers?: Record<string, string>;
 }
@@ -586,6 +586,192 @@ export const agentChatApi = {
     return request(`/api/v1/agent/${contractId}`, {
       method: "POST",
       body: { message, include_contract: true },
+    });
+  },
+};
+
+// Legal Notice Types
+export interface EvidenceItem {
+  item_name: string;
+  description: string;
+  is_required: boolean;
+}
+
+export interface ViolationEvidenceGuide {
+  violation_type: string;
+  severity: string;
+  evidence_list: EvidenceItem[];
+  guide_text: string;
+}
+
+export interface EvidenceGuideResponse {
+  guides: ViolationEvidenceGuide[];
+}
+
+export interface LegalNoticeSender {
+  name: string;
+  address?: string;
+  phone?: string;
+}
+
+export interface LegalNoticeRecipient {
+  company_name: string;
+  representative?: string;
+  address?: string;
+}
+
+export interface LegalNoticeStartRequest {
+  contract_id?: number;
+  sender_info?: LegalNoticeSender;
+  recipient_info?: LegalNoticeRecipient;
+}
+
+export interface LegalNoticeSessionResponse {
+  session_id: string;
+  status: string;
+  missing_info: string[];
+  ai_message: string;
+}
+
+export interface LegalNoticeChatRequest {
+  session_id: string;
+  user_message: string;
+}
+
+export interface LegalNoticeChatResponse {
+  session_id: string;
+  ai_message: string;
+  is_complete: boolean;
+  collected_info: Record<string, unknown>;
+}
+
+export interface LegalNoticeGenerateRequest {
+  session_id: string;
+}
+
+export interface LegalNoticeResultResponse {
+  title: string;
+  content: string;
+  generated_at: string;
+}
+
+// Session List Item
+export interface LegalNoticeSessionListItem {
+  id: string;
+  title: string | null;
+  status: string;
+  contract_id: number | null;
+  contract_title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Session List Response
+export interface LegalNoticeSessionListResponse {
+  items: LegalNoticeSessionListItem[];
+  total: number;
+  stats: {
+    collecting: number;
+    generating: number;
+    completed: number;
+    total: number;
+  };
+}
+
+// Session Detail
+export interface LegalNoticeSessionDetail {
+  id: string;
+  title: string | null;
+  status: string;
+  contract_id: number | null;
+  contract_title: string | null;
+  messages: Array<{ role: string; content: string }>;
+  collected_info: Record<string, unknown>;
+  final_content: string | null;
+  evidence_guide: string | null;
+  damage_summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Legal Notice API
+export const legalNoticeApi = {
+  /**
+   * Get evidence collection guide for a contract
+   */
+  getEvidenceGuide: async (contractId: number): Promise<EvidenceGuideResponse> => {
+    return request(`/api/v1/legal-notice/evidence-guide/${contractId}`);
+  },
+
+  /**
+   * Start a new legal notice session
+   */
+  startSession: async (data: LegalNoticeStartRequest): Promise<LegalNoticeSessionResponse> => {
+    return request("/api/v1/legal-notice/start", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Chat with the legal notice agent to collect information
+   */
+  chat: async (data: LegalNoticeChatRequest): Promise<LegalNoticeChatResponse> => {
+    return request("/api/v1/legal-notice/chat", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Generate the final legal notice document
+   */
+  generate: async (data: LegalNoticeGenerateRequest): Promise<LegalNoticeResultResponse> => {
+    return request("/api/v1/legal-notice/generate", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * List all legal notice sessions
+   */
+  listSessions: async (
+    skip = 0,
+    limit = 20,
+    statusFilter?: string,
+    search?: string
+  ): Promise<LegalNoticeSessionListResponse> => {
+    const params = new URLSearchParams();
+    params.append("skip", skip.toString());
+    params.append("limit", limit.toString());
+    if (statusFilter) params.append("status_filter", statusFilter);
+    if (search) params.append("search", search);
+    return request(`/api/v1/legal-notice/sessions?${params.toString()}`);
+  },
+
+  /**
+   * Get a specific session's details
+   */
+  getSession: async (sessionId: string): Promise<LegalNoticeSessionDetail> => {
+    return request(`/api/v1/legal-notice/sessions/${sessionId}`);
+  },
+
+  /**
+   * Delete a session
+   */
+  deleteSession: async (sessionId: string): Promise<void> => {
+    return request(`/api/v1/legal-notice/sessions/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Link a contract to an existing session
+   */
+  linkContract: async (sessionId: string, contractId: number): Promise<LegalNoticeSessionDetail> => {
+    return request(`/api/v1/legal-notice/sessions/${sessionId}/contract?contract_id=${contractId}`, {
+      method: "PATCH",
     });
   },
 };
