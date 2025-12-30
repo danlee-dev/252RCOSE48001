@@ -1,0 +1,190 @@
+# DocScanner AI Evaluation Configuration
+# 평가 설정 파일
+
+# General Settings
+experiment:
+  name: "docscanner_advanced_ai_eval"
+  version: "1.0.0"
+  seed: 42
+  seeds_for_repetition: [42, 123, 456]
+  output_dir: "./results"
+
+# Dataset Configuration
+datasets:
+  legalbench_kr:
+    path: "./datasets/legalbench_kr"
+    size: 500
+    splits:
+      train: 0.7
+      validation: 0.15
+      test: 0.15
+
+  contractrisk_100:
+    path: "./datasets/contractrisk_100"
+    size: 100
+    annotation_format: "json"
+    risk_levels: ["High", "Medium", "Low"]
+
+  synthetic_pii:
+    path: "./datasets/synthetic_pii"
+    size: 1000
+    pii_types:
+      - resident_registration_number
+      - phone_number
+      - email
+      - bank_account
+      - address
+      - name
+
+  real_contracts:
+    path: "./datasets/real_contracts"
+    size: 50
+    anonymized: true
+
+# Model Configuration
+models:
+  embedding:
+    name: "nlpai-lab/KURE-v1"
+    dimension: 1024
+    max_seq_length: 512
+
+  llm:
+    primary: "gpt-4o"
+    fallback: "gpt-4o-mini"
+    temperature:
+      analysis: 0.2
+      generation: 0.7
+
+# Retrieval Evaluation
+retrieval:
+  metrics:
+    - recall_at_k
+    - precision_at_k
+    - mrr
+    - ndcg_at_k
+    - map
+  k_values: [1, 3, 5, 10, 20]
+
+  baselines:
+    - name: "bm25"
+      enabled: true
+    - name: "dense_kure"
+      enabled: true
+    - name: "colbert_kr"
+      enabled: false  # Optional
+    - name: "muvera"
+      enabled: true
+    - name: "muvera_hyde"
+      enabled: true
+    - name: "muvera_crag"
+      enabled: true
+    - name: "full_pipeline"
+      enabled: true
+
+# Risk Detection Evaluation
+risk_detection:
+  metrics:
+    clause_level:
+      - precision
+      - recall
+      - f1
+    severity:
+      - accuracy
+      - macro_f1
+      - weighted_f1
+    financial:
+      - mae
+      - mape
+      - rmse
+
+  baselines:
+    - name: "rule_based"
+      enabled: true
+    - name: "gpt4o_zeroshot"
+      enabled: true
+    - name: "gpt4o_rag"
+      enabled: true
+    - name: "gpt4o_constitutional"
+      enabled: true
+    - name: "full_pipeline"
+      enabled: true
+
+# PII Evaluation
+pii_evaluation:
+  metrics:
+    - precision
+    - recall
+    - f1
+  analysis_preservation_threshold: 0.95
+
+# Ablation Study
+ablation:
+  enabled: true
+  components:
+    - name: "hyde"
+      description: "HyDE Query Enhancement"
+    - name: "raptor"
+      description: "RAPTOR Hierarchical Indexing"
+    - name: "crag"
+      description: "Graph-Guided CRAG"
+    - name: "constitutional_ai"
+      description: "Constitutional AI Review"
+    - name: "stress_test"
+      description: "Legal Stress Test"
+    - name: "judge"
+      description: "LLM-as-a-Judge"
+    - name: "reasoning_trace"
+      description: "Reasoning Trace Visualization"
+    - name: "pii_masking"
+      description: "PII Masking"
+    - name: "vision_rag"
+      description: "Vision RAG for Tables"
+    - name: "dspy"
+      description: "DSPy Self-Evolution"
+
+# Human Evaluation
+human_evaluation:
+  enabled: true
+  expert_count: 3
+  user_count: 30
+  contracts_per_evaluator: 5
+  evaluation_items:
+    expert:
+      - legal_accuracy
+      - completeness
+      - revision_quality
+      - financial_accuracy
+      - overall_reliability
+    user:
+      - understandability
+      - usefulness
+      - trustworthiness
+      - behavioral_intention
+
+# Statistical Analysis
+statistics:
+  significance_level: 0.05
+  tests:
+    - paired_t_test
+    - wilcoxon_signed_rank
+  effect_size: cohens_d
+  confidence_interval: 0.95
+  bootstrap_iterations: 1000
+
+# Cross Validation
+cross_validation:
+  enabled: true
+  n_folds: 5
+  stratify_by: "risk_level"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./results/evaluation.log"
+
+# Hardware
+hardware:
+  device: "cuda"
+  gpu_memory_fraction: 0.8
+  num_workers: 4

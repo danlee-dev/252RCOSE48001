@@ -1,9 +1,10 @@
 'use client'
 
 import { cn } from "@/lib/utils"
-import { LucideIcon } from "lucide-react"
+import { LucideIcon, ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Logo } from "@/components/icons"
 
 interface SidebarItem {
   title: string
@@ -14,41 +15,30 @@ interface SidebarItem {
 interface SidebarProps {
   items: SidebarItem[]
   className?: string
+  onCollapse?: () => void
 }
 
-export function Sidebar({ items, className }: SidebarProps) {
+export function Sidebar({ items, className, onCollapse }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <aside className={cn("w-64 min-h-screen", className)}>
+    <aside className={cn("w-64 min-h-screen bg-white border-r border-gray-200 relative transition-all duration-300", className)}>
       <div className="p-6">
-        <div className="flex items-center space-x-3 mb-8">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polygon points="14,2 14,8 20,8" />
-              <line x1="8" y1="13" x2="16" y2="13" />
-              <line x1="8" y1="17" x2="16" y2="17" />
-              <line x1="8" y1="9" x2="10" y2="9" />
-            </svg>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="flex-shrink-0 flex items-center justify-center">
+            <Logo size={36} color="#111827" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground leading-none">
-              DocScanner
-            </h1>
-            <p className="text-xs text-muted-foreground font-medium -mt-0.5">AI 계약서 분석</p>
+          <div className="flex flex-col justify-center gap-1 leading-none">
+            <span className="text-xl font-bold text-foreground leading-none">
+              DocScanner.ai
+            </span>
+            <span className="text-xs text-muted-foreground font-medium leading-none">
+              AI 계약서 분석
+            </span>
           </div>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="space-y-1">
           {items.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -58,19 +48,28 @@ export function Sidebar({ items, className }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                  "flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-primary text-white"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-accent"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-gray-50"
                 )}
               >
-                <Icon size={18} />
+                <Icon size={20} />
                 <span>{item.title}</span>
               </Link>
             )
           })}
         </nav>
       </div>
+
+      {onCollapse && (
+        <button
+          onClick={onCollapse}
+          className="absolute top-1/2 -right-3 transform -translate-y-1/2 w-6 h-12 bg-white border border-gray-200 rounded-r-lg shadow-sm hover:bg-gray-50 transition-all duration-200 flex items-center justify-center group"
+        >
+          <ChevronLeft className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+        </button>
+      )}
     </aside>
   )
 }

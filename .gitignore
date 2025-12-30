@@ -1,6 +1,7 @@
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # OS
 .DS_Store
@@ -21,6 +22,7 @@ CLAUDE.md
 
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -31,8 +33,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -88,3 +91,15 @@ coverage/
 *.swp
 *.swo
 *~
+temp_img/
+
+# 자동 생성된 데이터
+storage/
+/backend/storage/
+
+# Alembic (설정 파일은 추적, __pycache__만 무시)
+alembic/versions/__pycache__/
+/backend/alembic/versions/__pycache__/
+
+# Evaluation results
+evaluation/results/

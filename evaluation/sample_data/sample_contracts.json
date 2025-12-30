@@ -1,0 +1,67 @@
+[
+  {
+    "contract_id": "sample_001",
+    "contract_text": "근로계약서\n\n제1조 (계약기간)\n본 계약의 기간은 2024년 1월 1일부터 2024년 12월 31일까지로 한다.\n\n제2조 (근무시간)\n1일 8시간, 주 40시간을 기본 근무시간으로 한다.\n업무상 필요시 연장근로를 할 수 있다.\n\n제3조 (임금)\n월 급여 200만원 (연장근로수당 포함)을 매월 25일에 지급한다.\n\n제4조 (수습기간)\n수습기간 3개월간 급여의 90%를 지급한다.",
+    "ground_truth": {
+      "violations": [
+        {
+          "type": "포괄임금제",
+          "severity": "High",
+          "legal_basis": "근로기준법 제56조",
+          "description": "연장근로수당을 기본급에 포함하여 지급하는 것은 실제 연장근로시간에 따른 정확한 수당 지급을 회피할 수 있음"
+        },
+        {
+          "type": "최저임금 미달 (수습기간)",
+          "severity": "Medium",
+          "legal_basis": "최저임금법 제5조",
+          "description": "수습기간 90% 감액 시 최저임금 미달 가능성"
+        }
+      ],
+      "annual_underpayment": 2400000,
+      "risk_level": "High"
+    }
+  },
+  {
+    "contract_id": "sample_002",
+    "contract_text": "근로계약서\n\n제1조 (근무장소)\n회사가 지정하는 장소에서 근무한다.\n\n제2조 (임금)\n기본급: 월 250만원\n연장근로수당: 실제 연장근로시간에 따라 별도 지급\n야간근로수당: 실제 야간근로시간에 따라 별도 지급\n\n제3조 (근무시간)\n주 40시간 근무를 원칙으로 하며, 연장근로는 당사자 합의 하에 주 12시간 이내로 한다.\n\n제4조 (휴가)\n연차유급휴가는 근로기준법에 따라 부여한다.",
+    "ground_truth": {
+      "violations": [],
+      "annual_underpayment": 0,
+      "risk_level": "Low"
+    }
+  },
+  {
+    "contract_id": "sample_003",
+    "contract_text": "근로계약서\n\n제1조 (계약기간)\n2024년 3월 1일부터 계약 종료시까지\n\n제2조 (임금)\n시급 9,500원을 지급한다.\n주휴수당은 별도로 지급하지 않는다.\n\n제3조 (해고)\n회사는 업무상 필요시 예고 없이 근로자를 해고할 수 있다.\n\n제4조 (위약금)\n근로자가 계약기간 내 퇴사할 경우 월급여의 200%를 위약금으로 지급한다.",
+    "ground_truth": {
+      "violations": [
+        {
+          "type": "최저임금 미달",
+          "severity": "High",
+          "legal_basis": "최저임금법 제6조",
+          "description": "2024년 최저시급 9,860원 미달"
+        },
+        {
+          "type": "주휴수당 미지급",
+          "severity": "High",
+          "legal_basis": "근로기준법 제55조",
+          "description": "주 15시간 이상 근로 시 주휴수당 지급 의무"
+        },
+        {
+          "type": "부당해고 조항",
+          "severity": "High",
+          "legal_basis": "근로기준법 제23조",
+          "description": "정당한 이유 없이 해고 불가"
+        },
+        {
+          "type": "위약금 예정 금지 위반",
+          "severity": "High",
+          "legal_basis": "근로기준법 제20조",
+          "description": "근로계약 불이행에 대한 위약금 예정 금지"
+        }
+      ],
+      "annual_underpayment": 3600000,
+      "risk_level": "High"
+    }
+  }
+]
