@@ -72,19 +72,11 @@ DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자�
 |---------|-------------|
 | <img src="images/홈화면.png" alt="Home" width="100%"> | <img src="images/로그인화면.png" alt="Login" width="100%"> |
 
-### 체크리스트
+### 체크리스트 & Quick 스캔
 
-근로계약서 작성 전 필수 확인 항목을 체크리스트로 제공합니다.
-
-<div align="center">
-<img src="images/체크리스트화면.png" alt="Checklist" width="35%">
-</div>
-
-### Quick 스캔
-
-| 스캔 중 | 스캔 완료 |
-|---------|-----------|
-| <img src="images/퀵스캔화면(스캔중).png" alt="Quick Scan - Scanning" width="100%"> | <img src="images/퀵스캔화면(스캔완료).png" alt="Quick Scan - Complete" width="100%"> |
+| 체크리스트 | 퀵스캔 (스캔 중) | 퀵스캔 (스캔 완료) |
+|------------|------------------|---------------------|
+| <img src="images/체크리스트화면.png" alt="Checklist" width="100%"> | <img src="images/퀵스캔화면(스캔중).png" alt="Quick Scan - Scanning" width="100%"> | <img src="images/퀵스캔화면(스캔완료).png" alt="Quick Scan - Complete" width="100%"> |
 
 ### 계약서 심층 분석 결과
 
@@ -106,11 +98,17 @@ DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자�
 |-------------|----------------|
 | <img src="images/계약서분석결과화면_수정안모달.png" alt="Edit Modal" width="100%"> | <img src="images/계약서분석결과화면_수정안적용버튼클릭후-수정적용된모습.png" alt="Edit Applied" width="100%"> |
 
-**버전 관리**
+**수정 시 자동 버전 관리**
 
-| 수정 시 자동 버전 관리 | 버전 히스토리 화면 |
-|------------------------|---------------------|
-| <img src="images/계약서분석결과화면_수정시버전관리가자동으로되는모습.png" alt="Auto Version Control" width="100%"> | <img src="images/수정기록(버전히스토리)화면.png" alt="Version History" width="100%"> |
+<div align="center">
+<img src="images/계약서분석결과화면_수정시버전관리가자동으로되는모습.png" alt="Auto Version Control" width="100%">
+</div>
+
+**버전 히스토리 화면**
+
+<div align="center">
+<img src="images/수정기록(버전히스토리)화면.png" alt="Version History" width="60%">
+</div>
 
 ### AI 채팅 에이전트
 
