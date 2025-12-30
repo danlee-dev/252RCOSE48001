@@ -98,17 +98,11 @@ DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자�
 |-------------|----------------|
 | <img src="images/계약서분석결과화면_수정안모달.png" alt="Edit Modal" width="100%"> | <img src="images/계약서분석결과화면_수정안적용버튼클릭후-수정적용된모습.png" alt="Edit Applied" width="100%"> |
 
-**수정 시 자동 버전 관리**
+**버전 관리**
 
-<div align="center">
-<img src="images/계약서분석결과화면_수정시버전관리가자동으로되는모습.png" alt="Auto Version Control" width="100%">
-</div>
-
-**버전 히스토리 화면**
-
-<div align="center">
-<img src="images/수정기록(버전히스토리)화면.png" alt="Version History" width="60%">
-</div>
+| 수정 시 자동 버전 관리 | 버전 히스토리 화면 |
+|------------------------|---------------------|
+| <img src="images/계약서분석결과화면_수정시버전관리가자동으로되는모습.png" alt="Auto Version Control" width="100%"> | <img src="images/수정기록(버전히스토리)화면.png" alt="Version History" width="85%"> |
 
 ### AI 채팅 에이전트
 
@@ -121,7 +115,7 @@ DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자�
 ### 내용증명 자동 생성
 
 <div align="center">
-<img src="images/내용증명화면.png" alt="Legal Notice" width="80%">
+<img src="images/내용증명화면.png" alt="Legal Notice" width="100%">
 </div>
 
 ---
