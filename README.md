@@ -1,5 +1,9 @@
 <div align="center">
-<img src="images/logo-docscanner.png" alt="DocScanner Logo" width="120">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/logo-docscanner(white).png">
+  <source media="(prefers-color-scheme: light)" srcset="images/logo-docscanner.png">
+  <img src="images/logo-docscanner.png" alt="DocScanner Logo" width="120">
+</picture>
 <h1>DocScanner</h1>
 <p><strong>Hybrid RAG 기반의 근로계약서 자동 분석 및 법률 상담 에이전트</strong></p>
 <p>누구나 누리는 AI 법률 비서</p>
@@ -61,6 +65,62 @@ DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자�
 - **단계별 가이드**: 분쟁 대응을 위한 Step-by-step 가이드
 - **증거 확보**: 필요 서류 목록 및 증거 수집 방법 상세 안내
 - **자동 작성**: 피해 현황 수집(Slot Filling) 후 내용증명(Certification of Contents) 자동 작성
+
+---
+
+## 스크린샷
+
+### 홈 & 인증
+
+| 홈 화면 | 로그인 화면 |
+|---------|-------------|
+| <img src="images/홈화면.png" alt="Home" width="100%"> | <img src="images/로그인화면.png" alt="Login" width="100%"> |
+
+### 체크리스트 & Quick 스캔
+
+| 체크리스트 | 퀵스캔 (스캔 중) | 퀵스캔 (스캔 완료) |
+|------------|------------------|---------------------|
+| <img src="images/체크리스트화면.png" alt="Checklist" width="100%"> | <img src="images/퀵스캔화면(스캔중).png" alt="Quick Scan - Scanning" width="100%"> | <img src="images/퀵스캔화면(스캔완료).png" alt="Quick Scan - Complete" width="100%"> |
+
+### 계약서 심층 분석 결과
+
+**분석 결과 화면**
+
+<div align="center">
+<img src="images/계약서분석결과화면.png" alt="Analysis Result" width="100%">
+</div>
+
+**위험 조항 토글 및 자동 하이라이팅**
+
+<div align="center">
+<img src="images/계약서분석결과화면_위험조항-토글온및자동하이라이팅.png" alt="Risk Clause Highlighting" width="100%">
+</div>
+
+**수정안 모달 및 적용**
+
+| 수정안 모달 | 수정안 적용 후 |
+|-------------|----------------|
+| <img src="images/계약서분석결과화면_수정안모달.png" alt="Edit Modal" width="100%"> | <img src="images/계약서분석결과화면_수정안적용버튼클릭후-수정적용된모습.png" alt="Edit Applied" width="100%"> |
+
+**버전 관리**
+
+| 수정 시 자동 버전 관리 | 버전 히스토리 화면 |
+|------------------------|---------------------|
+| <img src="images/계약서분석결과화면_수정시버전관리가자동으로되는모습.png" alt="Auto Version Control" width="100%"> | <img src="images/수정기록(버전히스토리)화면.png" alt="Version History" width="85%"> |
+
+### AI 채팅 에이전트
+
+본문에서 텍스트를 드래그하여 바로 질문할 수 있습니다.
+
+| 드래그 후 질문 | 답변 중 | 답변 완료 |
+|----------------|---------|-----------|
+| <img src="images/AI채팅에이전트화면-본문에서드래그후질문가능.png" alt="Chat - Drag to Ask" width="100%"> | <img src="images/AI채팅에이전트화면-답변중.png" alt="Chat - Answering" width="100%"> | <img src="images/AI채팅에이전트화면-답변완료.png" alt="Chat - Complete" width="100%"> |
+
+### 내용증명 자동 생성
+
+<div align="center">
+<img src="images/내용증명화면.png" alt="Legal Notice" width="100%">
+</div>
 
 ---
 
@@ -158,6 +218,9 @@ LLM의 자연어 이해력과 Python의 정확한 수치 계산을 결합하고,
 ## 성능 비교 평가
 
 DocScanner 파이프라인 vs GPT-4o/Gemini 2.5 단순 프롬프팅 비교
+
+- **평가 데이터**: 한국 가상 근로계약서 12건, LLM-as-Judge 기반 평가
+- **체불액 산정**: 근로기준법 기반 Rule-based Calculator 적용
 
 | 평가 지표 | **DocScanner** | GPT-4o (Raw) | Gemini 2.5 (Raw) | 비고 |
 |-----------|----------------|--------------|------------------|------|
