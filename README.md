@@ -77,7 +77,7 @@ DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자�
 근로계약서 작성 전 필수 확인 항목을 체크리스트로 제공합니다.
 
 <div align="center">
-<img src="images/체크리스트화면.png" alt="Checklist" width="80%">
+<img src="images/체크리스트화면.png" alt="Checklist" width="35%">
 </div>
 
 ### Quick 스캔
