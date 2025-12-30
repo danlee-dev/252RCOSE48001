@@ -1,5 +1,9 @@
 <div align="center">
-<img src="images/logo-docscanner.png" alt="DocScanner Logo" width="120">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/logo-docscanner(white).png">
+  <source media="(prefers-color-scheme: light)" srcset="images/logo-docscanner.png">
+  <img src="images/logo-docscanner.png" alt="DocScanner Logo" width="120">
+</picture>
 <h1>DocScanner</h1>
 <p><strong>Hybrid RAG 기반의 근로계약서 자동 분석 및 법률 상담 에이전트</strong></p>
 <p>누구나 누리는 AI 법률 비서</p>
