@@ -1,24 +1,66 @@
-# 고려대학교 산학캡스톤디자인
-
 <div align="center">
-<h1>Docscanner.ai</h1>
-<p>근로계약서 자동 분석 AI 시스템</p>
+<img src="images/logo-docscanner.png" alt="DocScanner Logo" width="120">
+<h1>DocScanner</h1>
+<p><strong>Hybrid RAG 기반의 근로계약서 자동 분석 및 법률 상담 에이전트</strong></p>
+<p>누구나 누리는 AI 법률 비서</p>
+
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.121.3-green.svg)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-black.svg)](https://nextjs.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-0.2.0+-orange.svg)](https://langchain-ai.github.io/langgraph/)
+
 </div>
 
-> 개발기간: 2025.10 ~
->
-> Built with Python (FastAPI), Next.js, LangGraph
+---
 
-## 프로젝트 개요
+## 개요
 
-DocScanner AI는 근로계약서를 AI로 분석하여 법적 위험 조항을 자동으로 탐지하고, 사용자에게 법적 근거와 함께 개선안을 제시하는 시스템입니다.
+DocScanner는 근로계약서를 AI로 분석하여 법적 위험 조항을 자동으로 탐지하고, 사용자에게 법적 근거와 함께 개선안을 제시하는 시스템입니다. 비전문가도 5분 내 계약서의 독소조항 및 위법 여부를 파악하고 대응할 수 있습니다.
 
-### 핵심 목표
+### 개발 배경
 
-1. **정확한 위반 탐지**: LLM 기반 조항 분석으로 정규식 한계 극복
-2. **법적 근거 제시**: Vector DB + Graph DB 하이브리드 검색으로 관련 법령/판례 제시
-3. **실시간 채팅 지원**: LangGraph 에이전트로 계약서 관련 질문에 실시간 응답
-4. **신뢰할 수 있는 분석**: Constitutional AI, LLM-as-a-Judge로 분석 품질 보장
+| 현황 | 수치 |
+|------|------|
+| 청년 근로자 근로계약서 미작성 비율 | 34.8% |
+| 청소년 알바생 근로계약서 미작성 비율 | 50% |
+| 임금 체불 등 부당 대우 경험 | 10.3% |
+
+기존 리걸테크 시장의 85%가 기업용(B2B)에 편중되어 개인용 도구가 부재한 상황입니다.
+
+### 비용 혁신
+
+| 항목 | 비용 | 비고 |
+|------|------|------|
+| 변호사 상담료 | 30분 약 10만 원 | 최저시급 알바생 10시간 급여 |
+| DocScanner | 건당 약 260원 | 변호사 상담 대비 99% 이상 절감 |
+
+---
+
+## 서비스 주요 기능
+
+### 1. 계약서 Quick 스캔 분석
+
+- **속도**: 10초 이내 빠른 계약서 위험도 평가
+- **기술**: Gemini Vision 모델 활용
+- **결과**: 주요 위험 요소(Red Flag) 즉시 확인
+
+### 2. 계약서 심층 분석
+
+- **위험 조항 시각화**: 12단계 분석을 통해 독소조항 하이라이팅 및 상세 법적 근거 제시
+- **자동 수정 제안**: 문제 조항을 법적 효력이 있는 '공정 계약 문구'로 자동 변환
+- **정밀 계산**: Neuro-Symbolic AI를 적용하여 정확한 체불 금액 시뮬레이션
+
+### 3. 법률 AI 채팅 상담 에이전트
+
+- **기반 기술**: LangGraph 기반 대화형 법률 상담
+- **5가지 핵심 도구(Tools)**: 법률 검색, 판례 검색, 계약서 분석, 일반 질문, 신고 방법 안내
+- **응답 방식**: 실시간 스트리밍 응답
+
+### 4. 내용증명 및 증거 수집 가이드
+
+- **단계별 가이드**: 분쟁 대응을 위한 Step-by-step 가이드
+- **증거 확보**: 필요 서류 목록 및 증거 수집 방법 상세 안내
+- **자동 작성**: 피해 현황 수집(Slot Filling) 후 내용증명(Certification of Contents) 자동 작성
 
 ---
 
@@ -27,7 +69,7 @@ DocScanner AI는 근로계약서를 AI로 분석하여 법적 위험 조항을 �
 Frontend(Next.js)에서 Backend(FastAPI)로 요청이 전달되고, 12단계 AI Pipeline을 거쳐 분석 결과를 SSE 스트리밍으로 반환합니다.
 
 <div align="center">
-<img src="images/system-architecture.png" alt="System Architecture" width="100%">
+<img src="images/시스템아키텍처.png" alt="System Architecture" width="100%">
 <p><i>Frontend - Backend - AI Pipeline - Data Layer 구조</i></p>
 </div>
 
@@ -35,28 +77,33 @@ Frontend(Next.js)에서 Backend(FastAPI)로 요청이 전달되고, 12단계 AI 
 
 ## 핵심 기술
 
-### 1. HyDE + CRAG + Knowledge Graph
+### Hybrid RAG (Vector DB + Knowledge Graph)
 
-검색 품질을 극대화하기 위한 3단계 검색 강화 파이프라인입니다.
+Vector DB(Elasticsearch)와 Graph DB(Neo4j)를 결합한 하이브리드 검색으로 정확한 법적 근거를 제공합니다.
 
 <div align="center">
-<img src="images/hyde-crag-knowledge_graph.png" alt="HyDE, CRAG, Knowledge Graph" width="80%">
+<img src="images/하이브리드RAG아키텍처.png" alt="Hybrid RAG Architecture" width="100%">
 </div>
 
-| 기술 | 설명 |
-|------|------|
-| **HyDE** | 사용자 질의를 LLM으로 가상의 법률 문서로 변환하여 검색 정확도 향상 |
-| **CRAG** | 검색 결과를 8단계로 품질 평가하고, 7가지 교정 전략 적용 |
-| **Knowledge Graph** | Neo4j 기반 멀티홉 검색으로 Clause - Risk - Precedent - Law 연결 |
+| 구성요소 | 설명 |
+|----------|------|
+| **Vector DB (Elasticsearch)** | [MUVERA](#muvera-임베딩) 고정 차원 인코딩 적용으로 검색 속도와 성능 결합 |
+| **Graph DB (Neo4j)** | 법령-판례-계약조항 간의 관계를 구조화한 Knowledge Graph 구축 |
+
+**검색 흐름:**
+
+1. **Vector DB Search**: 시급, 임금 등 키워드로 의미적 유사도 검색
+2. **Graph DB Expansion**: 검색된 판례에서 CITES 관계를 따라 관련 법령/해석례 확장
+3. **LLM Analysis**: Vector + Graph 결합 문서로 분석 수행
 
 ---
 
-### 2. MUVERA 임베딩
+### MUVERA 임베딩
 
-Google Research(NeurIPS 2024)의 Multi-Vector Retrieval 기술을 적용하여 긴 법률 문서의 세부 의미를 보존합니다.
+Google Research(NeurIPS 2024)의 [Multi-Vector Retrieval via Fixed Dimensional Encodings](https://arxiv.org/abs/2405.19504) 기술을 적용하여 긴 법률 문서의 세부 의미를 보존합니다.
 
 <div align="center">
-<img src="images/MUVERA Embedding.png" alt="MUVERA Embedding Process" width="80%">
+<img src="images/무베라임베딩.png" alt="MUVERA Embedding Process" width="100%">
 </div>
 
 **처리 과정:**
@@ -66,79 +113,95 @@ Google Research(NeurIPS 2024)의 Multi-Vector Retrieval 기술을 적용하여 �
 3. **SimHash Partitioning**: Locality-Sensitive Hashing으로 유사 벡터를 같은 버킷에 할당
 4. **FDE Compression**: Multi-vector를 단일 1024차원 벡터로 압축 (의미 보존)
 
+> **Reference**: Laxman Dhulipala, Majid Hadian, Rajesh Jayaram, Jason Lee, Vahab Mirrokni. "Multi-Vector Retrieval via Fixed Dimensional Encodings." *NeurIPS 2024*.
+
 ---
 
-### 3. Hybrid DB 검색
+### 계약서 분석 파이프라인
 
-Vector DB(Elasticsearch)와 Graph DB(Neo4j)를 결합한 하이브리드 검색으로 정확한 법적 근거를 제공합니다.
+PII 마스킹된 데이터를 6단계 분석 파이프라인을 통해 처리합니다.
 
 <div align="center">
-<img src="images/Hybrid DB Architecture.png" alt="Hybrid DB Architecture" width="80%">
+<img src="images/계약서분석파이프라인.png" alt="Contract Analysis Pipeline" width="100%">
 </div>
 
-**검색 흐름:**
+| 단계 | 모듈 | 설명 |
+|------|------|------|
+| 1 | **ClauseAnalyzer** | 계약서에서 위험 조항 자동 추출. 내부 호출: HyDE + CRAG. Neuro-Symbolic: LLM + 수식 계산 |
+| 2 | **HyDE** | 짧은 쿼리를 법률 문서로 확장. 가상 법률 의견서 생성(판례/법령/행정해석). 검색 정확도 +40% |
+| 3 | **CRAG** | 문서 검색 후 관련성 평가 (HIGHLY_RELEVANT / RELEVANT / NOT_RELEVANT). 품질 낮으면 쿼리 재작성. 노이즈 제거 + 자가 보정 |
+| 4 | **RAPTOR** | 계층적 요약 트리 구조. [루트] 전체 요약, [중간] 조항 그룹 요약, [리프] 각 개별 조항. Adaptive depth |
+| 5 | **Constitutional** | 6대 노동법 원칙 준수 여부. 비판 + 수정. 근로자 보호 강화. 윤리 검증 |
+| 6 | **LLM-Judge** | 5개 평가 지표 (정확성/일관성/완전성/관련성/법적근거). 가중치 적용. 팩트 체크 |
 
-1. **Vector DB Search**: 시급, 임금 등 키워드로 의미적 유사도 검색
-2. **Graph DB Expansion**: 검색된 판례에서 CITES 관계를 따라 관련 법령/해석례 확장
-3. **LLM Analysis**: Vector 5건 + Graph 6건 = 총 11건의 문서로 분석 수행
+> **Reference**: Parth Sarthi, Salman Abdullah, Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning. "RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval." *ICLR 2024*, Stanford University. [Paper Link](https://arxiv.org/abs/2401.18059)
 
 ---
 
-### 4. RAPTOR 계층적 요약
-
-계약서 내용을 트리 구조로 요약하여 다중 레벨 검색을 지원합니다.
-
-<div align="center">
-<img src="images/raptor.png" alt="RAPTOR Tree Structure" width="80%">
-</div>
-
-**트리 구조:**
-
-- **Level 2 (Root)**: 전체 계약서 요약 (Contract Overview)
-- **Level 1**: 카테고리별 요약 (Wage, Work Hours, Leave)
-- **Level 0**: 원본 조항 청크 (Art.5, Art.6, ...)
-
-**구축 과정**: Embed - Cluster - Summarize - Repeat
-
----
-
-### 5. Neuro-Symbolic AI + Constitutional AI
+### Neuro-Symbolic AI + Constitutional AI
 
 LLM의 자연어 이해력과 Python의 정확한 수치 계산을 결합하고, 6가지 노동법 원칙으로 분석 품질을 보장합니다.
 
-<div align="center">
-<img src="images/neuro-symbol_constitutional.png" alt="Neuro-Symbolic AI and Constitutional AI" width="100%">
-</div>
-
-**Neuro-Symbolic AI (좌측):**
+**Neuro-Symbolic AI:**
 
 - **LLM (Neuro)**: 계약서에서 급여, 근로시간 등 정보 추출
 - **Python (Symbolic)**: 정확한 수치 계산 및 법적 기준 비교
 - **11가지 검증 항목**: 최저임금, 연장근로수당, 주휴수당, 연차휴가 등
 
-**Constitutional AI (우측):**
+**Constitutional AI:**
 
 - **6가지 원칙**: Human Dignity, Worker Protection, Min Standard, Equality, Safety, Transparency
 - **Critique - Revise 워크플로우**: 원칙 위반 시 자동 수정
 
 ---
 
-## 비용 분석
+## 성능 비교 평가
 
-전체 12단계 파이프라인 실행 시 계약서 1건당 약 103원의 비용이 발생합니다.
+DocScanner 파이프라인 vs GPT-4o/Gemini 2.5 단순 프롬프팅 비교
 
-<div align="center">
-<img src="images/cost.png" alt="Cost Analysis" width="60%">
-</div>
+| 평가 지표 | **DocScanner** | GPT-4o (Raw) | Gemini 2.5 (Raw) | 비고 |
+|-----------|----------------|--------------|------------------|------|
+| **위반 탐지 F1** | **0.498** | 0.402 | 0.383 | GPT 대비 +23.9% |
+| **위반 탐지 Recall** | **0.743** | 0.552 | 0.527 | GPT 대비 +34.6% |
+| **체불액 MAPE** | **~0%** | 33% | 24% | 오차율 0% (Neuro-Symbolic) |
+| **체불액 MAE** | **~0원** | 415만 원 | 347만 원 | 오차 거의 없음 |
+| **법률 인용 정확도** | **100%** | - | - | 정확한 법적 근거 제시 |
+| **법률 환각률** | **0%** | - | - | 할루시네이션 없음 |
+
+---
+
+## 데이터 구축 현황
 
 | 항목 | 수치 |
 |------|------|
-| **계약서당 비용** | ~103 KRW ($0.073) |
-| **총 토큰** | 43,266 (Input: 13,166 / Output: 30,100) |
-| **LLM 호출** | 12회 |
-| **모델별 비용** | gpt-5-mini: $0.045 (61%) / gpt-4o: $0.028 (39%) |
+| **총 청크(Chunks)** | 15,223개 |
+| **법령 데이터** | 847개 |
+| **판례 데이터** | 2,100개 이상 |
+| **그래프 노드** | 15,261개 |
+| **그래프 엣지** | 1,357개 |
+| **출처** | 국가법령정보 Open API (고용노동부, 법제처, 대법원) |
 
-> 변호사 검토 비용(50,000원 이상) 대비 약 500배 저렴
+### Vector DB (Elasticsearch)
+
+| 데이터 유형 | 문서 수 | 청크 수 |
+|------------|--------|--------|
+| 판례 (precedent) | 969 | 10,576 |
+| 고용노동부 해설 (labor_ministry) | 1,827 | 3,384 |
+| 법령해석례 (interpretation) | 135 | 589 |
+| 업무 매뉴얼/가이드 (manual) | - | 674 |
+| **합계** | **2,931+** | **15,223** |
+
+### Graph DB (Neo4j)
+
+**노드 유형:**
+
+- Document, Precedent, Interpretation, Manual, Law
+- Category, ClauseType (6종), RiskPattern (4종)
+
+**관계 유형:**
+
+- CATEGORIZED_AS, SOURCE_IS, IS_A_TYPE_OF
+- HAS_CASE, HAS_INTERPRETATION, CITES
 
 ---
 
@@ -173,7 +236,7 @@ LLM의 자연어 이해력과 Python의 정확한 수치 계산을 결합하고,
 | Alembic | DB 마이그레이션 | 1.17.2 |
 | LangGraph | AI 에이전트 프레임워크 | 0.2.0+ |
 | LangChain | LLM 통합 | 0.3.0+ |
-| OpenAI | GPT-4o / GPT-5-mini API | 1.95.0 |
+| OpenAI | GPT-4o API | 1.95.0 |
 | Google Generative AI | Gemini API | 0.8.3 |
 | Tavily | 웹 검색 API | 0.5.0+ |
 | sentence-transformers | 임베딩 생성 | 5.1.2 |
@@ -199,34 +262,6 @@ LLM의 자연어 이해력과 Python의 정확한 수치 계산을 결합하고,
 | Neo4j | Graph DB | 7474, 7687 |
 | Redis | 캐시 & Celery 큐 | 6379 |
 | Docker | 컨테이너화 | - |
-
----
-
-## 데이터베이스
-
-### Vector DB (Elasticsearch)
-
-**데이터 현황** (총 15,223개 청크):
-
-| 데이터 유형 | 문서 수 | 청크 수 |
-|------------|--------|--------|
-| 판례 (precedent) | 969 | 10,576 |
-| 고용노동부 해설 (labor_ministry) | 1,827 | 3,384 |
-| 법령해석례 (interpretation) | 135 | 589 |
-| 업무 매뉴얼/가이드 (manual) | - | 674 |
-| **합계** | **2,931+** | **15,223** |
-
-### Graph DB (Neo4j)
-
-**노드 유형:**
-
-- Document, Precedent, Interpretation, Manual, Law
-- Category, ClauseType (6종), RiskPattern (4종)
-
-**관계 유형:**
-
-- CATEGORIZED_AS, SOURCE_IS, IS_A_TYPE_OF
-- HAS_CASE, HAS_INTERPRETATION, CITES
 
 ---
 
@@ -280,11 +315,12 @@ LLM의 자연어 이해력과 Python의 정확한 수치 계산을 결합하고,
 | POST | `/api/v1/scan/quick` | 이미지 기반 빠른 위험 탐지 |
 | GET | `/api/v1/scan/keywords` | 위험 키워드 목록 조회 |
 
-### 체크리스트 (Checklist)
+### 내용증명 (Legal Notice)
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET | `/api/v1/checklist/` | 2025 고용계약 체크리스트 조회 |
+| POST | `/api/v1/legal-notice/` | 내용증명 자동 생성 |
+| GET | `/api/v1/legal-notice/{id}` | 내용증명 조회 |
 
 ---
 
@@ -369,6 +405,14 @@ npm run dev
 
 ---
 
+## 기대 효과
+
+- **사회적 가치**: 청년 및 청소년의 노동 권익 사각지대 해소 및 불공정 계약 예방
+- **통합 지원**: 계약서 분석 - 내용증명 자동 생성 - 법률 상담까지 One-Stop 해결
+- **확장성**: 검증된 Hybrid RAG 엔진을 기반으로 부동산(임대차), 용역 계약 등 타 법률 도메인 확장 가능
+
+---
+
 ## 참여자
 
 | 강민선 (Minsun Kang) - 팀장                                                                     | 이성민 (Seongmin Lee)                                                                           |
@@ -388,9 +432,12 @@ npm run dev
 
 프로젝트 관련 문의사항은 GitHub Issues를 통해 남겨주시기 바랍니다.
 
-## 참고 자료
+---
 
+## References
+
+- Laxman Dhulipala, Majid Hadian, Rajesh Jayaram, Jason Lee, Vahab Mirrokni. "[Multi-Vector Retrieval via Fixed Dimensional Encodings](https://arxiv.org/abs/2405.19504)." *NeurIPS 2024*, Google Research.
+- Parth Sarthi, Salman Abdullah, Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning. "[RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval](https://arxiv.org/abs/2401.18059)." *ICLR 2024*, Stanford University.
+- "[Corrective Retrieval Augmented Generation (CRAG)](https://arxiv.org/abs/2401.15884)."
+- "[Constitutional AI (Anthropic)](https://arxiv.org/abs/2212.08073)."
 - [v1 개발 현황 상세 문서](docs/development/v1-development-status.md)
-- [MUVERA Paper (Google Research)](https://arxiv.org/abs/2405.19504)
-- [CRAG Paper](https://arxiv.org/abs/2401.15884)
-- [Constitutional AI (Anthropic)](https://arxiv.org/abs/2212.08073)
